@@ -1,6 +1,9 @@
-from odoo.exceptions import UserError
-from odoo.tests import tagged
+import requests
 
+from odoo.exceptions import UserError
+from odoo.tests import Form, tagged
+
+from odoo.addons.delivery_neoship import const
 from odoo.addons.delivery_neoship.models.neoship_api import PROD_URL, TEST_URL
 
 from .common import NeoshipCommon, make_response, mock_neoship
@@ -8,24 +11,57 @@ from .common import NeoshipCommon, make_response, mock_neoship
 
 @tagged('post_install', '-at_install')
 class TestDeliveryCarrier(NeoshipCommon):
+    def test_form_saves_without_delivery_product(self):
+        with Form(self.env['delivery.carrier']) as carrier_form:
+            carrier_form.name = 'Neoship SPS'
+            carrier_form.delivery_type = const.DELIVERY_TYPE
+            carrier_form.neoship_username = 'user@example.com'
+            carrier_form.neoship_password = 'secret-password'
+            carrier_form.fixed_price = 3.9
+        carrier = carrier_form.record
+        self.assertEqual(carrier.product_id.name, 'Neoship SPS')
+        self.assertEqual(carrier.product_id.type, const.ODOO_PRODUCT_TYPE_SERVICE)
+        self.assertEqual(carrier.product_id.list_price, 3.9)
+
+    def test_each_carrier_gets_its_own_product(self):
+        carriers = self.env['delivery.carrier'].create(
+            [
+                {'name': 'Neoship GLS', 'delivery_type': const.DELIVERY_TYPE},
+                {'name': 'Neoship Packeta', 'delivery_type': const.DELIVERY_TYPE},
+            ]
+        )
+        self.assertEqual(len(carriers.product_id), 2)
+
+    def test_existing_product_is_kept(self):
+        self.assertEqual(self.carrier.product_id, self.delivery_product)
 
     def test_connection_uses_test_environment_by_default(self):
-        with mock_neoship(make_response(json_data={'token': 't'})) as mock_request:
+        with mock_neoship(make_response(json_data={'token': 't'})) as calls:
             action = self.carrier.action_neoship_test_connection()
-        self.assertEqual(mock_request.call_args.args[1], TEST_URL + '/login_check')
+        self.assertEqual(calls[-1]['url'], TEST_URL + '/login_check')
         self.assertEqual(action['params']['type'], 'success')
 
     def test_connection_uses_production_environment(self):
         self.carrier.prod_environment = True
-        with mock_neoship(make_response(json_data={'token': 't'})) as mock_request:
+        with mock_neoship(make_response(json_data={'token': 't'})) as calls:
             self.carrier.action_neoship_test_connection()
-        self.assertEqual(mock_request.call_args.args[1], PROD_URL + '/login_check')
+        self.assertEqual(calls[-1]['url'], PROD_URL + '/login_check')
 
     def test_connection_failure_does_not_leak_password(self):
-        with mock_neoship(make_response(401, {'message': 'Invalid credentials'})):
-            with self.assertRaisesRegex(UserError, 'Invalid credentials') as error:
-                self.carrier.action_neoship_test_connection()
+        with (
+            mock_neoship(make_response(401, {'message': 'Invalid credentials'})),
+            self.assertRaisesRegex(UserError, 'Invalid credentials') as error,
+        ):
+            self.carrier.action_neoship_test_connection()
         self.assertNotIn('secret-password', str(error.exception))
+
+    def test_connection_timeout_is_reported_without_details(self):
+        with (
+            mock_neoship(requests.exceptions.ReadTimeout()),
+            self.assertRaisesRegex(UserError, 'did not respond in time') as error,
+        ):
+            self.carrier.action_neoship_test_connection()
+        self.assertNotIn('login_check', str(error.exception))
 
     def test_connection_requires_credentials(self):
         self.carrier.neoship_password = False

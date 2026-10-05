@@ -6,7 +6,7 @@ import requests
 
 from odoo.tests import TransactionCase
 
-REQUEST_PATH = 'odoo.addons.delivery_neoship.models.neoship_api.requests.request'
+from odoo.addons.delivery_neoship import const
 
 
 def make_response(status=200, json_data=None, content=b'', content_type='application/json'):
@@ -19,25 +19,38 @@ def make_response(status=200, json_data=None, content=b'', content_type='applica
 
 @contextmanager
 def mock_neoship(*responses):
-    with patch(REQUEST_PATH, side_effect=list(responses)) as mock_request:
-        yield mock_request
+    calls = []
+    pending = list(responses)
+
+    def request(session, method, url, **kwargs):
+        calls.append({'method': method, 'url': url, 'headers': dict(session.headers), **kwargs})
+        result = pending.pop(0)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    with patch.object(requests.Session, 'request', autospec=True, side_effect=request):
+        yield calls
 
 
 class NeoshipCommon(TransactionCase):
-
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.delivery_product = cls.env['product.product'].create({
-            'name': 'Neoship Delivery',
-            'type': 'service',
-            'list_price': 4.5,
-        })
-        cls.carrier = cls.env['delivery.carrier'].create({
-            'name': 'Neoship Test',
-            'delivery_type': 'neoship',
-            'product_id': cls.delivery_product.id,
-            'neoship_username': 'user@example.com',
-            'neoship_password': 'secret-password',
-            'neoship_shipper_id': '42',
-        })
+        cls.delivery_product = cls.env['product.product'].create(
+            {
+                'name': 'Neoship Delivery',
+                'type': const.ODOO_PRODUCT_TYPE_SERVICE,
+                'list_price': 4.5,
+            }
+        )
+        cls.carrier = cls.env['delivery.carrier'].create(
+            {
+                'name': 'Neoship Test',
+                'delivery_type': const.DELIVERY_TYPE,
+                'product_id': cls.delivery_product.id,
+                'neoship_username': 'user@example.com',
+                'neoship_password': 'secret-password',
+                'neoship_shipper_id': '42',
+            }
+        )

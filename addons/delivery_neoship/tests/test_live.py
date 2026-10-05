@@ -8,7 +8,6 @@ from odoo.addons.delivery_neoship.models.neoship_api import TEST_URL, NeoshipCli
 
 @tagged('-standard', 'neoship_live')
 class TestNeoshipLive(BaseCase):
-
     def setUp(self):
         super().setUp()
         username = os.environ.get('NEOSHIP_USERNAME')
@@ -16,6 +15,7 @@ class TestNeoshipLive(BaseCase):
         if not username or not password:
             raise unittest.SkipTest('NEOSHIP_USERNAME and NEOSHIP_PASSWORD are not set')
         self.client = NeoshipClient(os.environ.get('NEOSHIP_API') or TEST_URL, username, password)
+        self.addCleanup(self.client.close)
 
     def test_login(self):
         self.assertTrue(self.client.login())

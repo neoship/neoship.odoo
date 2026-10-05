@@ -12,48 +12,60 @@ class NeoshipAuthError(NeoshipError):
     pass
 
 
-class NeoshipTimeout(NeoshipError):
+class NeoshipConnectionError(NeoshipError):
+    pass
+
+
+class NeoshipTimeout(NeoshipConnectionError):
     pass
 
 
 class NeoshipClient:
-
     def __init__(self, base_url, username, password, timeout=30):
         self.base_url = base_url.rstrip('/')
         self.username = username
         self.password = password
         self.timeout = timeout
-        self._token = None
+        self.session = requests.Session()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        self.close()
+
+    def close(self):
+        self.session.close()
 
     def login(self):
-        data = self._send('POST', '/login_check', json={
-            'username': self.username,
-            'password': self.password,
-        })
-        self._token = data['token']
-        return self._token
+        self.session.headers.pop('Authorization', None)
+        data = self._send(
+            'POST',
+            '/login_check',
+            json={
+                'username': self.username,
+                'password': self.password,
+            },
+        )
+        self.session.headers['Authorization'] = f'Bearer {data["token"]}'
+        return data['token']
 
     def request(self, method, path, **kwargs):
-        if not self._token:
+        if 'Authorization' not in self.session.headers:
             self.login()
         try:
-            return self._send(method, path, authenticated=True, **kwargs)
+            return self._send(method, path, **kwargs)
         except NeoshipAuthError:
             self.login()
-            return self._send(method, path, authenticated=True, **kwargs)
+            return self._send(method, path, **kwargs)
 
-    def _send(self, method, path, authenticated=False, **kwargs):
-        headers = kwargs.pop('headers', {})
-        if authenticated:
-            headers['Authorization'] = f'Bearer {self._token}'
+    def _send(self, method, path, **kwargs):
         try:
-            response = requests.request(
-                method, self.base_url + path, headers=headers, timeout=self.timeout, **kwargs,
-            )
+            response = self.session.request(method, self.base_url + path, timeout=self.timeout, **kwargs)
         except requests.exceptions.Timeout as e:
             raise NeoshipTimeout(f'Neoship did not respond in time ({method} {path})') from e
         except requests.exceptions.RequestException as e:
-            raise NeoshipError(f'Cannot connect to Neoship ({method} {path})') from e
+            raise NeoshipConnectionError(f'Cannot connect to Neoship ({method} {path})') from e
 
         if response.status_code == 401:
             raise NeoshipAuthError(self._error_message(response))

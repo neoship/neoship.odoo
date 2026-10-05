@@ -8,6 +8,7 @@
         'views/delivery_carrier_views.xml',
         'views/stock_picking_views.xml',
     ],
+    'author': 'Neoship',
     'license': 'LGPL-3',
     'installable': True,
 }
