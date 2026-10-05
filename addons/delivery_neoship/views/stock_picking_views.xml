@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_neoship" model="ir.ui.view">
+        <field name="name">stock.picking.form.neoship</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock_delivery.view_picking_withcarrier_out_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//group[@name='carrier_data']" position="after">
+                <group name="neoship_data" string="Neoship" invisible="delivery_type != 'neoship'">
+                    <field name="neoship_package_id"/>
+                    <field name="neoship_reference"/>
+                    <field name="neoship_status"/>
+                    <field name="neoship_last_sync"/>
+                    <field name="neoship_needs_review"/>
+                    <field name="neoship_error" invisible="not neoship_error"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

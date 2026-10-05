@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_delivery_carrier_form_neoship" model="ir.ui.view">
+        <field name="name">delivery.carrier.form.neoship</field>
+        <field name="model">delivery.carrier</field>
+        <field name="inherit_id" ref="delivery.view_delivery_carrier_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='tracking_url']" position="attributes">
+                <attribute name="invisible">delivery_type not in ('fixed', 'base_on_rule', 'neoship')</attribute>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Neoship Configuration" name="neoship_configuration" invisible="delivery_type != 'neoship'">
+                    <group>
+                        <group name="neoship_credentials" string="Account" groups="base.group_system">
+                            <field name="neoship_username" required="delivery_type == 'neoship'"/>
+                            <field name="neoship_password" password="True" required="delivery_type == 'neoship'"/>
+                            <button name="action_neoship_test_connection" type="object" string="Test Connection" icon="fa-plug" class="btn-secondary" colspan="2"/>
+                        </group>
+                        <group name="neoship_shipping" string="Shipping">
+                            <field name="neoship_shipper_id"/>
+                            <field name="neoship_carrier"/>
+                            <field name="neoship_carrier_type"/>
+                        </group>
+                    </group>
+                    <group name="neoship_cod" string="Cash on Delivery">
+                        <field name="neoship_cod_domain" widget="domain" options="{'model': 'sale.order', 'in_dialog': True}"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
