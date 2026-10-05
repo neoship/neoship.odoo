@@ -1,0 +1,33 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.format]
+quote-style = "single"
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # bugbear
+    "UP",   # pyupgrade
+    "SIM",  # simplify
+    "C4",   # comprehensions
+    "INT",  # gettext: no f-strings / formatting inside _()
+]
+
+[tool.ruff.lint.flake8-gettext]
+extend-function-names = ["_lt"]
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "odoo", "odoo-addons", "first-party", "local-folder"]
+
+[tool.ruff.lint.isort.sections]
+odoo = ["odoo"]
+odoo-addons = ["odoo.addons"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401", "I001"]
+"**/__manifest__.py" = ["B018"]

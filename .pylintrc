@@ -1,0 +1,85 @@
+[MASTER]
+load-plugins=pylint_odoo
+score=n
+
+[IMPORTS]
+deprecated-modules=pdb,pudb,ipdb,bs4
+
+[ODOOLINT]
+manifest-required-authors=Neoship
+manifest-required-keys=license
+manifest-deprecated-keys=description,active
+license-allowed=LGPL-3,OPL-1
+valid-odoo-versions=19.0
+
+[MESSAGES CONTROL]
+disable=all
+enable=anomalous-backslash-in-string,
+    assignment-from-none,
+    attribute-deprecated,
+    attribute-string-redundant,
+    bad-builtin-groupby,
+    context-overridden,
+    dangerous-default-value,
+    deprecated-module,
+    deprecated-name-get,
+    deprecated-odoo-model-method,
+    deprecated-self-cr,
+    development-status-allowed,
+    duplicate-key,
+    eval-used,
+    except-pass,
+    external-request-timeout,
+    inheritable-method-lambda,
+    inheritable-method-string,
+    invalid-commit,
+    license-allowed,
+    manifest-author-string,
+    manifest-behind-migrations,
+    manifest-data-duplicated,
+    manifest-deprecated-key,
+    manifest-required-author,
+    manifest-required-key,
+    manifest-summary-multiline,
+    manifest-version-format,
+    method-compute,
+    method-inverse,
+    method-required-super,
+    method-search,
+    missing-odoo-file,
+    missing-return,
+    no-raise-unlink,
+    no-search-all,
+    no-wizard-in-models,
+    no-write-in-compute,
+    pointless-statement,
+    pointless-string-statement,
+    prefer-env-translation,
+    print-used,
+    prohibited-method-override,
+    redundant-keyword-arg,
+    reimported,
+    renamed-field-parameter,
+    resource-not-exist,
+    return-in-init,
+    sql-injection,
+    test-folder-imported,
+    too-few-format-args,
+    translation-contains-variable,
+    translation-field,
+    translation-format-interpolation,
+    translation-format-truncated,
+    translation-fstring-interpolation,
+    translation-injection,
+    translation-not-lazy,
+    translation-positional-used,
+    translation-required,
+    translation-too-few-args,
+    translation-too-many-args,
+    translation-unsupported-format,
+    unreachable
+
+[REPORTS]
+msg-template={path}:{line}: [{msg_id}({symbol}), {obj}] {msg}
+output-format=colorized
+reports=no
