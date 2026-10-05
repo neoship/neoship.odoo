@@ -1,10 +1,19 @@
+import json
+
+import psycopg2
 import requests
 
 from odoo.exceptions import UserError
 from odoo.tests import Form, tagged
+from odoo.tools import mute_logger
 
 from odoo.addons.delivery_neoship import const
-from odoo.addons.delivery_neoship.models.neoship_api import PROD_URL, TEST_URL
+from odoo.addons.delivery_neoship.models.neoship_api import (
+    PROD_TRACKING_URL,
+    PROD_URL,
+    TEST_TRACKING_URL,
+    TEST_URL,
+)
 
 from .common import NeoshipCommon, make_response, mock_neoship
 
@@ -83,3 +92,28 @@ class TestDeliveryCarrier(NeoshipCommon):
     def test_send_shipping_is_not_implemented(self):
         with self.assertRaises(UserError):
             self.carrier.send_shipping(self.env['stock.picking'])
+
+    def _picking(self, tracking_ref):
+        return self.env['stock.picking'].new({'carrier_id': self.carrier.id, 'carrier_tracking_ref': tracking_ref})
+
+    def test_tracking_link_uses_test_environment(self):
+        link = self.carrier.get_tracking_link(self._picking('202605101419'))
+        self.assertEqual(link, TEST_TRACKING_URL + '202605101419/')
+
+    def test_tracking_link_uses_production_environment(self):
+        self.carrier.prod_environment = True
+        link = self.carrier.get_tracking_link(self._picking('202605101419'))
+        self.assertEqual(link, 'https://aplikacia.neoship.sk/tracking/202605101419/')
+        self.assertTrue(link.startswith(PROD_TRACKING_URL))
+
+    def test_tracking_link_for_multiple_numbers(self):
+        links = json.loads(self.carrier.get_tracking_link(self._picking('111, 222')))
+        self.assertEqual(links, [['111', TEST_TRACKING_URL + '111/'], ['222', TEST_TRACKING_URL + '222/']])
+
+    def test_tracking_link_without_tracking_number(self):
+        self.assertFalse(self.carrier.get_tracking_link(self._picking(False)))
+
+    def test_default_weight_cannot_be_negative(self):
+        with mute_logger('odoo.sql_db'), self.assertRaises(psycopg2.errors.CheckViolation):
+            self.carrier.neoship_default_weight = -1
+            self.carrier.flush_recordset()

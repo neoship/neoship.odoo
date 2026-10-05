@@ -19,3 +19,13 @@ class TestNeoshipLive(BaseCase):
 
     def test_login(self):
         self.assertTrue(self.client.login())
+
+    def test_get_shippers(self):
+        shippers = self.client.get_shippers()
+        self.assertTrue(shippers)
+        self.assertTrue({'id', 'name', 'shortcut'} <= set(shippers[0]))
+
+    def test_get_packeta_carriers(self):
+        carriers = self.client.get_packeta_carriers()
+        self.assertTrue(carriers)
+        self.assertTrue({'packeta_id', 'name', 'state'} <= set(carriers[0]))

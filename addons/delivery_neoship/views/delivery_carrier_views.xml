@@ -11,9 +11,6 @@
             <xpath expr="//field[@name='fixed_price']" position="attributes">
                 <attribute name="invisible">delivery_type not in ('fixed', 'neoship')</attribute>
             </xpath>
-            <xpath expr="//field[@name='tracking_url']" position="attributes">
-                <attribute name="invisible">delivery_type not in ('fixed', 'base_on_rule', 'neoship')</attribute>
-            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Neoship Configuration" name="neoship_configuration" invisible="delivery_type != 'neoship'">
                     <group>
@@ -23,9 +20,24 @@
                             <button name="action_neoship_test_connection" type="object" string="Test Connection" icon="fa-plug" class="btn-secondary" colspan="2"/>
                         </group>
                         <group name="neoship_shipping" string="Shipping">
-                            <field name="neoship_shipper_id"/>
-                            <field name="neoship_carrier"/>
-                            <field name="neoship_carrier_type"/>
+                            <field name="neoship_shipper_id" invisible="1"/>
+                            <field name="neoship_has_carrier_type" invisible="1"/>
+                            <label for="neoship_shipper_name"/>
+                            <div class="o_row">
+                                <field name="neoship_shipper_name" placeholder="Not selected"/>
+                                <button name="action_neoship_choose_shipper" type="object" string="Choose" icon="fa-list" class="btn-link"/>
+                            </div>
+                            <label for="neoship_default_weight"/>
+                            <div class="o_row">
+                                <field name="neoship_default_weight"/>
+                                <field name="weight_uom_name" nolabel="1"/>
+                            </div>
+                            <field name="neoship_carrier_type" invisible="1"/>
+                            <label for="neoship_carrier_type_name" invisible="not neoship_has_carrier_type"/>
+                            <div class="o_row" invisible="not neoship_has_carrier_type">
+                                <field name="neoship_carrier_type_name" placeholder="Not selected" required="neoship_has_carrier_type"/>
+                                <button name="action_neoship_choose_carrier_type" type="object" string="Choose" icon="fa-list" class="btn-link"/>
+                            </div>
                         </group>
                     </group>
                     <group name="neoship_cod" string="Cash on Delivery">

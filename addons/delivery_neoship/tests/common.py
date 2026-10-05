@@ -51,6 +51,5 @@ class NeoshipCommon(TransactionCase):
                 'product_id': cls.delivery_product.id,
                 'neoship_username': 'user@example.com',
                 'neoship_password': 'secret-password',
-                'neoship_shipper_id': '42',
             }
         )

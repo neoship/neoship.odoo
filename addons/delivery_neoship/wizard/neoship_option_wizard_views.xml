@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="neoship_option_wizard_view_form" model="ir.ui.view">
+        <field name="name">neoship.option.wizard.form</field>
+        <field name="model">neoship.option.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <field name="carrier_id" invisible="1"/>
+                <field name="kind" invisible="1"/>
+                <field name="line_ids" readonly="1">
+                    <list>
+                        <field name="name"/>
+                        <field name="code" column_invisible="parent.kind != 'shipper'"/>
+                        <field name="supports_parcelshops" column_invisible="parent.kind != 'shipper'"/>
+                        <field name="country" column_invisible="parent.kind != 'carrier_type'"/>
+                        <field name="currency" column_invisible="parent.kind != 'carrier_type'"/>
+                        <button name="action_select" type="object" string="Select" class="btn-primary"/>
+                    </list>
+                </field>
+                <footer>
+                    <button special="cancel" string="Cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

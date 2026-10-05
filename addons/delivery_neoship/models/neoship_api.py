@@ -2,6 +2,8 @@ import requests
 
 PROD_URL = 'https://apiserver.neoship.sk/api'
 TEST_URL = 'https://t-we-nshp-api-01-app.azurewebsites.net/api'
+PROD_TRACKING_URL = 'https://aplikacia.neoship.sk/tracking/'
+TEST_TRACKING_URL = 'https://t-we-nshp-webapp-01-app.azurewebsites.net/tracking/'
 
 
 class NeoshipError(Exception):
@@ -49,6 +51,12 @@ class NeoshipClient:
         )
         self.session.headers['Authorization'] = f'Bearer {data["token"]}'
         return data['token']
+
+    def get_shippers(self):
+        return self.request('GET', '/shipper/')
+
+    def get_packeta_carriers(self):
+        return self.request('GET', '/carrier/available')
 
     def request(self, method, path, **kwargs):
         if 'Authorization' not in self.session.headers:
