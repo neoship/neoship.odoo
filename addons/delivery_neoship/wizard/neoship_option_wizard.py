@@ -38,14 +38,15 @@ class NeoshipOptionWizardLine(models.TransientModel):
         self.ensure_one()
         wizard = self.wizard_id
         carrier = wizard.carrier_id
+        schedules = self.env['neoship.closure.schedule']
         if wizard.kind == const.OPTION_KIND_SHIPPER:
             if carrier._neoship_requires_carrier_type(self.code):
                 return carrier._neoship_open_carrier_type_wizard(self.value, self.code, self.name)
-            carrier._neoship_set_shipper(self.value, self.code, self.name)
+            schedules = carrier._neoship_set_shipper(self.value, self.code, self.name)
         elif wizard.shipper_id:
-            carrier._neoship_set_shipper(
+            schedules = carrier._neoship_set_shipper(
                 wizard.shipper_id, wizard.shipper_code, wizard.shipper_name, self.value, self.name, self.country_id.id
             )
         else:
             carrier._neoship_set_carrier_type(self.value, self.name, self.country_id.id)
-        return {'type': 'ir.actions.act_window_close'}
+        return carrier._neoship_closure_schedule_notification(schedules)

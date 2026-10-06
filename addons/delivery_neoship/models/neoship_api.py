@@ -64,8 +64,11 @@ class NeoshipClient:
     def get_packeta_carriers(self):
         return self.request('GET', '/carrier/available')
 
-    def create_packages(self, shipper_id, packages):
-        return self.request('POST', f'/package/bulk-create-and-print/{shipper_id}', json={'packages': packages})
+    def create_packages(self, shipper_id, packages, print_type=None):
+        payload = {'packages': packages}
+        if print_type:
+            payload['options'] = {'print_type': print_type}
+        return self.request('POST', f'/package/bulk-create-and-print/{shipper_id}', json=payload)
 
     def find_packages(self, reference_numbers):
         try:
@@ -84,6 +87,12 @@ class NeoshipClient:
 
     def cancel_package(self, package_id):
         return self.request('POST', f'/package/cancel/{package_id}')
+
+    def close_day(self, action, date=None):
+        payload = {'action': action}
+        if date:
+            payload['date'] = date.isoformat()
+        return self.request('POST', '/package/bulk/', json=payload)
 
     def request(self, method, path, **kwargs):
         if 'Authorization' not in self.session.headers:

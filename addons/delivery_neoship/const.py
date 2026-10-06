@@ -1,7 +1,23 @@
 DELIVERY_TYPE = 'neoship'
 
+SHIPPER_CODE_GLS = 'gls'
 SHIPPER_CODE_PACKETA = 'packeta'
+SHIPPER_CODE_SPS = 'sps'
+SHIPPER_CODE_DPD = 'dpd'
+SHIPPER_CODE_SK_POSTA = 'sk_posta'
+SHIPPER_CODE_SDS = 'sds'
 SHIPPER_CODES_WITH_CARRIER_TYPE = (SHIPPER_CODE_PACKETA,)
+
+# Carrier-specific formats from ../api, ../neoship-app and Neoship's API documentation.
+# The API endpoint otherwise forces GLS's A4_2x2 for every shipper.
+LABEL_PRINT_TYPES = {
+    SHIPPER_CODE_GLS: 'A4_2x2',
+    SHIPPER_CODE_PACKETA: 'A6 on A4',
+    SHIPPER_CODE_SPS: 'a4',
+    SHIPPER_CODE_DPD: 'A4',
+    SHIPPER_CODE_SK_POSTA: 'A6',
+    SHIPPER_CODE_SDS: 'default',
+}
 
 REFERENCE_MAX_LENGTH = 25
 REFERENCE_COMPANY_PREFIX = 'C'
@@ -45,6 +61,22 @@ TRACKING_LIMIT_PER_RUN = 500
 TRACKING_DAYS_PARAM = 'delivery_neoship.tracking_days'
 TRACKING_DAYS_DEFAULT = 30
 
+CLOSURE_ACTIONS = {
+    SHIPPER_CODE_SPS: 'daily_closing',
+    SHIPPER_CODE_PACKETA: 'packeta_acceptance_protocol',
+    SHIPPER_CODE_SK_POSTA: 'SK_POSTA_daily_closing',
+}
+CLOSURE_SHIPPERS_BY_DATE = (SHIPPER_CODE_PACKETA,)
+CLOSURE_NO_PACKAGES = 'K dispozícii niesu žiadne balíky.'
+CLOSURE_TIMEOUT = 120
+CLOSURE_DEDUP_MINUTES = 10
+CLOSURE_MAX_DAYS = 7
+CLOSURE_DEFAULT_TIME = 15.0
+CLOSURE_STATE_DONE = 'done'
+CLOSURE_STATE_EMPTY = 'empty'
+CLOSURE_STATE_FAILED = 'failed'
+WEEKDAY_FIELDS = ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')
+
 OPTION_KIND_SHIPPER = 'shipper'
 OPTION_KIND_CARRIER_TYPE = 'carrier_type'
 
@@ -53,3 +85,5 @@ ODOO_PRODUCT_TYPE_SERVICE = 'service'
 ODOO_INVOICE_POLICY_ORDER = 'order'
 ODOO_UOM_KG = 'uom.product_uom_kgm'
 ODOO_PICKING_STATE_CANCEL = 'cancel'
+ODOO_CRON_INTERVAL_DAYS = 'days'
+ODOO_SERVER_ACTION_CODE = 'code'

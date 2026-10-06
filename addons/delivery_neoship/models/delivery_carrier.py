@@ -41,6 +41,8 @@ class DeliveryCarrier(models.Model):
     neoship_shipper_code = fields.Char(string='Neoship Carrier Code', readonly=True)
     neoship_shipper_name = fields.Char(string='Neoship Carrier', readonly=True)
     neoship_has_carrier_type = fields.Boolean(compute='_compute_neoship_has_carrier_type')
+    neoship_has_closure = fields.Boolean(compute='_compute_neoship_has_closure', store=True)
+    neoship_closure_schedule_count = fields.Integer(compute='_compute_neoship_closure_schedule_count')
     neoship_carrier_type = fields.Integer(string='Packeta Home Delivery Carrier ID', readonly=True)
     neoship_carrier_type_name = fields.Char(
         string='Packeta Home Delivery Carrier',
@@ -74,6 +76,27 @@ class DeliveryCarrier(models.Model):
     def _compute_neoship_has_carrier_type(self):
         for carrier in self:
             carrier.neoship_has_carrier_type = self._neoship_requires_carrier_type(carrier.neoship_shipper_code)
+
+    @api.depends('delivery_type', 'neoship_shipper_code')
+    def _compute_neoship_has_closure(self):
+        for carrier in self:
+            carrier.neoship_has_closure = bool(carrier._neoship_closure_action())
+
+    def _compute_neoship_closure_schedule_count(self):
+        counts = dict(
+            self.env['neoship.closure.schedule']
+            .sudo()
+            .with_context(active_test=False)
+            ._read_group([('carrier_id', 'in', self.ids)], ['carrier_id'], ['__count'])
+        )
+        for carrier in self:
+            carrier.neoship_closure_schedule_count = counts.get(carrier._origin, 0)
+
+    def _neoship_closure_action(self):
+        self.ensure_one()
+        if self.delivery_type != const.DELIVERY_TYPE:
+            return None
+        return const.CLOSURE_ACTIONS.get((self.neoship_shipper_code or '').lower())
 
     @api.constrains('neoship_shipper_code', 'neoship_carrier_type')
     def _check_neoship_carrier_type(self):
@@ -120,7 +143,7 @@ class DeliveryCarrier(models.Model):
             }
         )
 
-    def _neoship_client(self, prod_environment=None):
+    def _neoship_client(self, prod_environment=None, timeout=None):
         self.ensure_one()
         carrier = self.sudo()
         if not carrier.neoship_username or not carrier.neoship_password:
@@ -131,6 +154,7 @@ class DeliveryCarrier(models.Model):
             PROD_URL if prod_environment else TEST_URL,
             carrier.neoship_username,
             carrier.neoship_password,
+            **({'timeout': timeout} if timeout else {}),
         )
 
     def _neoship_is_cod(self, order):
@@ -232,6 +256,7 @@ class DeliveryCarrier(models.Model):
     def _neoship_set_shipper(
         self, shipper_id, code, name, carrier_type=False, carrier_type_name=False, carrier_type_country_id=False
     ):
+        changed = self.filtered(lambda carrier: carrier.neoship_shipper_id != (shipper_id or 0))
         self.write(
             {
                 'neoship_shipper_id': shipper_id,
@@ -240,6 +265,72 @@ class DeliveryCarrier(models.Model):
                 **self._neoship_carrier_type_values(carrier_type, carrier_type_name, carrier_type_country_id),
             }
         )
+        return changed._neoship_reset_closure_schedules()
+
+    def _neoship_reset_closure_schedules(self):
+        schedules = self.env['neoship.closure.schedule'].sudo().with_context(active_test=False)
+        schedules.search([('carrier_id', 'in', self.ids), ('active', '=', True)]).action_archive()
+        created = schedules.browse()
+        for carrier in self.filtered('neoship_has_closure'):
+            if not schedules.search_count([('carrier_id', 'in', carrier._neoship_same_shipper_account().ids)], limit=1):
+                created |= schedules.create({'carrier_id': carrier.id, 'active': False})
+        return created
+
+    def _neoship_same_shipper_account(self):
+        self.ensure_one()
+        carrier = self.sudo()
+        shipper_code = (carrier.neoship_shipper_code or '').lower()
+        return (
+            carrier.with_context(active_test=False)
+            .search(
+                [
+                    ('delivery_type', '=', const.DELIVERY_TYPE),
+                    ('neoship_username', '=', carrier.neoship_username),
+                ]
+            )
+            .filtered(lambda other: (other.neoship_shipper_code or '').lower() == shipper_code)
+        )
+
+    def _neoship_closure_schedule_notification(self, schedules):
+        if not schedules:
+            return {'type': 'ir.actions.act_window_close'}
+        carriers = ', '.join(schedules.carrier_id.mapped('name'))
+        params = {
+            'type': 'info',
+            'title': self.env._('Neoship'),
+            'message': self.env._(
+                'An archived Neoship closure schedule was created for %s. '
+                'An administrator checks its time and days and activates it in '
+                'Inventory > Configuration > Neoship Closure Schedules.',
+                carriers,
+            ),
+            'sticky': True,
+            'next': {'type': 'ir.actions.act_window_close'},
+        }
+        if self.env.user.has_group('base.group_system'):
+            url = '/odoo/action-delivery_neoship.action_neoship_closure_schedule'
+            if len(schedules) == 1:
+                url = f'{url}/{schedules.id}'
+            params.update(
+                {
+                    # The browser replaces %s with the link, so % in carrier names is escaped.
+                    'message': self.env._(
+                        'An archived Neoship closure schedule was created for %(carriers)s. '
+                        'Check its time and days, then activate it: %(link)s',
+                        carriers=carriers.replace('%', '%%'),
+                        link='%s',
+                    ),
+                    'links': [{'label': self.env._('Open closure schedule'), 'url': url}],
+                }
+            )
+        return {'type': 'ir.actions.client', 'tag': 'display_notification', 'params': params}
+
+    def action_neoship_view_closure_schedules(self):
+        self.ensure_one()
+        action = self.env['ir.actions.act_window']._for_xml_id('delivery_neoship.action_neoship_closure_schedule')
+        action['domain'] = [('carrier_id', '=', self.id)]
+        action['context'] = {'active_test': False, 'default_carrier_id': self.id}
+        return action
 
     def _neoship_set_carrier_type(self, carrier_type, name, country_id=False):
         self.write(self._neoship_carrier_type_values(carrier_type, name, country_id))
@@ -319,6 +410,16 @@ class DeliveryCarrier(models.Model):
 
         shipment = self._neoship_create(client, package)
         if not shipment.get('tracking_number'):
+            carrier_errors = '; '.join(str(error) for error in shipment.get('errors') or [])
+            if carrier_errors:
+                raise UserError(
+                    self.env._(
+                        'The carrier refused Neoship shipment %(reference)s: %(errors)s. '
+                        'Fix the problem and validate again.',
+                        reference=reference,
+                        errors=carrier_errors,
+                    )
+                )
             raise UserError(
                 self.env._(
                     'Neoship created shipment %s but the carrier returned no tracking number. '
@@ -340,7 +441,8 @@ class DeliveryCarrier(models.Model):
 
     def _neoship_create(self, client, package):
         try:
-            return client.create_packages(self.neoship_shipper_id, [package])[0]
+            print_type = const.LABEL_PRINT_TYPES.get((self.neoship_shipper_code or '').lower())
+            return client.create_packages(self.neoship_shipper_id, [package], print_type)[0]
         except NeoshipTimeout as e:
             raise UserError(
                 self.env._(

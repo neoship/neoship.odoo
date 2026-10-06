@@ -17,9 +17,9 @@ PDF = b'%PDF-1.5 label'
 NOT_FOUND = make_response(404, {})
 
 
-def created(package_id=501, tracking_number='TRK1', reference='REF'):
+def created(package_id=501, tracking_number='TRK1', reference='REF', **values):
     return make_response(
-        json_data=[{'id': package_id, 'reference_number': reference, 'tracking_number': tracking_number}]
+        json_data=[{'id': package_id, 'reference_number': reference, 'tracking_number': tracking_number, **values}]
     )
 
 
@@ -123,6 +123,7 @@ class TestSendShipping(NeoshipCommon):
         calls = self._send(picking, NOT_FOUND, created(), label())
 
         self.assertTrue(calls[2]['url'].endswith('/package/bulk-create-and-print/2'))
+        self.assertEqual(calls[2]['json']['options'], {'print_type': const.LABEL_PRINT_TYPES[const.SHIPPER_CODE_SPS]})
         package = self._sent_package(calls)
         self.assertTrue(package['reference_number'].endswith(picking.name.replace('/', '-')))
         self.assertEqual(package['receiver_name'], 'Jan Testovaci')
@@ -221,6 +222,15 @@ class TestSendShipping(NeoshipCommon):
         picking = self._picking()
         with self.assertRaisesRegex(UserError, 'returned no tracking number'):
             self._send(picking, NOT_FOUND, created(tracking_number=None))
+        self.assertFalse(picking.neoship_package_id)
+
+    def test_carrier_refusal_shows_carrier_errors(self):
+        picking = self._picking()
+        refused = created(tracking_number=None, errors=["Invalid service parameter, Service 'FSS'", 'Invalid phone'])
+        with self.assertRaisesRegex(
+            UserError, r"carrier refused .*: Invalid service parameter, Service 'FSS'; Invalid phone\."
+        ):
+            self._send(picking, NOT_FOUND, refused)
         self.assertFalse(picking.neoship_package_id)
 
     def test_several_shipments_with_same_reference_need_review(self):
@@ -436,9 +446,12 @@ class TestSendShipping(NeoshipCommon):
                 'neoship_carrier_type_country_id': self.country_sk.id,
             }
         )
-        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        calls = self._send(self._picking(), NOT_FOUND, created(), label())
+        package = self._sent_package(calls)
         self.assertEqual(package['carrier_type'], 131)
         self.assertNotIn('parcelshop', package)
+        create_call = next(call for call in calls if '/bulk-create-and-print/' in call['url'])
+        self.assertEqual(create_call['json']['options'], {'print_type': 'A6 on A4'})
 
     def test_packeta_home_delivery_to_another_country_is_refused_before_calling_neoship(self):
         self.carrier.write(

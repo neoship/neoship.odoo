@@ -11,6 +11,7 @@
         'views/delivery_carrier_views.xml',
         'views/stock_picking_views.xml',
         'views/sale_order_views.xml',
+        'views/neoship_closure_views.xml',
     ],
     'author': 'Neoship',
     'license': 'LGPL-3',

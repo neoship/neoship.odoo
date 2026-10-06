@@ -56,6 +56,13 @@ class TestOptionWizard(NeoshipCommon):
         action = self._select(wizard, 'Packeta', make_response(json_data=PACKETA_CARRIERS))
         self._select(self._wizard(action), carrier_type_name)
 
+    def _schedules(self, carrier=None):
+        return (
+            self.env['neoship.closure.schedule']
+            .with_context(active_test=False)
+            .search([('carrier_id', '=', (carrier or self.carrier).id)])
+        )
+
     def test_shipper_options_come_from_api(self):
         wizard, calls = self._open('action_neoship_choose_shipper', SHIPPERS)
         self.assertTrue(calls[-1]['url'].endswith('/shipper/'))
@@ -64,8 +71,7 @@ class TestOptionWizard(NeoshipCommon):
 
     def test_select_shipper_stores_it_on_delivery_method(self):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
-        action = self._select(wizard, 'SPS')
-        self.assertEqual(action['type'], 'ir.actions.act_window_close')
+        self._select(wizard, 'SPS')
         self.assertEqual(self.carrier.neoship_shipper_id, 2)
         self.assertEqual(self.carrier.neoship_shipper_code, 'SPS')
         self.assertEqual(self.carrier.neoship_shipper_name, 'SPS')
@@ -150,3 +156,75 @@ class TestOptionWizard(NeoshipCommon):
         self._select(self._wizard(action).with_user(manager), 'SK Packeta Home HD')
         self.assertEqual(self.carrier.neoship_shipper_id, 3)
         self.assertEqual(self.carrier.neoship_carrier_type, 131)
+
+    def test_choosing_carrier_with_closure_creates_archived_schedule(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        action = self._select(wizard, 'SPS')
+        schedule = self._schedules()
+        self.assertEqual(len(schedule), 1)
+        self.assertFalse(schedule.active)
+        self.assertFalse(schedule.cron_id.active)
+        self.assertEqual(schedule.closure_time, const.CLOSURE_DEFAULT_TIME)
+        self.assertEqual([schedule[day] for day in const.WEEKDAY_FIELDS], [True, True, True, True, True, False, False])
+        self.assertEqual(action['tag'], 'display_notification')
+        self.assertIn(self.carrier.name, action['params']['message'])
+        self.assertEqual(action['params']['next'], {'type': 'ir.actions.act_window_close'})
+        self.assertTrue(action['params']['message'].endswith('%s'))
+        self.assertEqual(
+            action['params']['links'][0]['url'],
+            f'/odoo/action-delivery_neoship.action_neoship_closure_schedule/{schedule.id}',
+        )
+        self.assertEqual(self.carrier.neoship_closure_schedule_count, 1)
+
+    def test_choosing_carrier_without_closure_creates_no_schedule(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        action = self._select(wizard, '123kuriér')
+        self.assertEqual(action, {'type': 'ir.actions.act_window_close'})
+        self.assertFalse(self._schedules())
+
+    def test_choosing_same_carrier_again_keeps_schedule_active(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, 'SPS')
+        self._schedules().active = True
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        action = self._select(wizard, 'SPS')
+        self.assertEqual(action, {'type': 'ir.actions.act_window_close'})
+        self.assertTrue(self._schedules().active)
+
+    def test_account_carrier_with_schedule_gets_no_second_one(self):
+        self._choose_packeta('SK Packeta Home HD')
+        packeta_cz = self.carrier.copy({'name': 'Neoship Packeta CZ'})
+        packeta_cz._neoship_set_shipper(False, False, False)
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS, packeta_cz)
+        action = self._select(wizard, 'Packeta', make_response(json_data=PACKETA_CARRIERS))
+        self._select(self._wizard(action), 'CZ Zásilkovna domů HD')
+        self.assertEqual(packeta_cz.neoship_shipper_id, 3)
+        self.assertFalse(self._schedules(packeta_cz), 'The closure covers the whole account at Packeta.')
+
+    def test_changing_carrier_archives_schedule(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, 'SPS')
+        schedule = self._schedules()
+        schedule.active = True
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, '123kuriér')
+        self.assertFalse(schedule.active)
+        self.assertFalse(schedule.cron_id.active)
+
+    def test_switching_environment_archives_schedule(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, 'SPS')
+        schedule = self._schedules()
+        schedule.active = True
+        self.carrier.toggle_prod_environment()
+        self.assertFalse(schedule.active)
+
+    def test_stock_manager_choice_creates_schedule(self):
+        manager = new_test_user(self.env, login='neoship_stock_manager_2', groups='stock.group_stock_manager')
+        carrier = self.carrier.with_user(manager)
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS, carrier)
+        action = self._select(wizard.with_user(manager), 'SPS')
+        self.assertEqual(len(self._schedules()), 1)
+        self.assertNotIn('links', action['params'], 'Only administrators can open closure schedules.')
+        self.assertNotIn('%s', action['params']['message'])
+        self.assertEqual(carrier.neoship_closure_schedule_count, 1)

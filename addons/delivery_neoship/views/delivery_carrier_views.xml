@@ -11,6 +11,11 @@
             <xpath expr="//field[@name='fixed_price']" position="attributes">
                 <attribute name="invisible">delivery_type not in ('fixed', 'neoship')</attribute>
             </xpath>
+            <div name="button_box" position="inside">
+                <button name="action_neoship_view_closure_schedules" type="object" class="oe_stat_button" icon="fa-clock-o" groups="base.group_system" invisible="delivery_type != 'neoship'">
+                    <field name="neoship_closure_schedule_count" widget="statinfo" string="Closure Schedules"/>
+                </button>
+            </div>
             <xpath expr="//notebook" position="inside">
                 <page string="Neoship Configuration" name="neoship_configuration" invisible="delivery_type != 'neoship'">
                     <group>
