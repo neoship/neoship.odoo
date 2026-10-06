@@ -89,20 +89,21 @@ class TestDeliveryCarrier(NeoshipCommon):
         self.assertTrue(self.carrier._neoship_is_cod(cod_order))
         self.assertFalse(self.carrier._neoship_is_cod(prepaid_order))
 
-    def test_send_shipping_is_not_implemented(self):
-        with self.assertRaises(UserError):
-            self.carrier.send_shipping(self.env['stock.picking'])
-
-    def _picking(self, tracking_ref):
-        return self.env['stock.picking'].new({'carrier_id': self.carrier.id, 'carrier_tracking_ref': tracking_ref})
+    def _picking(self, tracking_ref, prod_environment=False):
+        return self.env['stock.picking'].new(
+            {
+                'carrier_id': self.carrier.id,
+                'carrier_tracking_ref': tracking_ref,
+                'neoship_prod_environment': prod_environment,
+            }
+        )
 
     def test_tracking_link_uses_test_environment(self):
         link = self.carrier.get_tracking_link(self._picking('202605101419'))
         self.assertEqual(link, TEST_TRACKING_URL + '202605101419/')
 
     def test_tracking_link_uses_production_environment(self):
-        self.carrier.prod_environment = True
-        link = self.carrier.get_tracking_link(self._picking('202605101419'))
+        link = self.carrier.get_tracking_link(self._picking('202605101419', prod_environment=True))
         self.assertEqual(link, 'https://aplikacia.neoship.sk/tracking/202605101419/')
         self.assertTrue(link.startswith(PROD_TRACKING_URL))
 

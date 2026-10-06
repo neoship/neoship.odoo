@@ -74,6 +74,19 @@ class TestNeoshipClient(BaseCase):
         ):
             self.client.request('POST', '/package/42', json={})
 
+    def test_field_errors_are_listed(self):
+        detail = NeoshipClient._error_detail(
+            [{'reference_number': 'X', 'errors': {'receiver_zip': ['Invalid ZIP.'], 'receiver_city': 'Required.'}}]
+        )
+        self.assertEqual(detail, 'receiver_zip: Invalid ZIP.; receiver_city: Required.')
+
+    def test_package_level_errors_are_listed(self):
+        detail = NeoshipClient._error_detail([{'reference_number': 'X', 'errors': ['Invalid package', 'No credit']}])
+        self.assertEqual(detail, 'Invalid package; No credit')
+
+    def test_single_error_message_is_kept_whole(self):
+        self.assertEqual(NeoshipClient._error_detail([{'errors': 'Invalid package'}]), 'Invalid package')
+
     def test_timeout_is_distinguishable(self):
         self.client.session.headers['Authorization'] = 'Bearer token-1'
         with mock_neoship(requests.exceptions.ReadTimeout()), self.assertRaises(NeoshipTimeout):

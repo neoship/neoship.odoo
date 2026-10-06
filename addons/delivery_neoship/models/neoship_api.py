@@ -1,3 +1,5 @@
+from http import HTTPStatus
+
 import requests
 
 PROD_URL = 'https://apiserver.neoship.sk/api'
@@ -11,6 +13,10 @@ class NeoshipError(Exception):
 
 
 class NeoshipAuthError(NeoshipError):
+    pass
+
+
+class NeoshipNotFoundError(NeoshipError):
     pass
 
 
@@ -58,6 +64,24 @@ class NeoshipClient:
     def get_packeta_carriers(self):
         return self.request('GET', '/carrier/available')
 
+    def create_packages(self, shipper_id, packages):
+        return self.request('POST', f'/package/bulk-create-and-print/{shipper_id}', json={'packages': packages})
+
+    def find_packages(self, reference_numbers):
+        try:
+            return self.request('POST', '/package/referencenumber/', json={'reference_numbers': reference_numbers})
+        except NeoshipNotFoundError:
+            return []
+
+    def get_label(self, package_id):
+        return self.request('GET', f'/package/{package_id}/label')
+
+    def delete_package(self, package_id):
+        return self.request('DELETE', f'/package/{package_id}')
+
+    def cancel_package(self, package_id):
+        return self.request('POST', f'/package/cancel/{package_id}')
+
     def request(self, method, path, **kwargs):
         if 'Authorization' not in self.session.headers:
             self.login()
@@ -75,18 +99,46 @@ class NeoshipClient:
         except requests.exceptions.RequestException as e:
             raise NeoshipConnectionError(f'Cannot connect to Neoship ({method} {path})') from e
 
-        if response.status_code == 401:
+        if response.status_code == HTTPStatus.UNAUTHORIZED:
             raise NeoshipAuthError(self._error_message(response))
+        if response.status_code == HTTPStatus.NOT_FOUND:
+            raise NeoshipNotFoundError(self._error_message(response))
         if not response.ok:
             raise NeoshipError(self._error_message(response))
         if 'application/json' in response.headers.get('Content-Type', ''):
             return response.json()
         return response.content
 
-    @staticmethod
-    def _error_message(response):
+    @classmethod
+    def _error_message(cls, response):
         try:
-            message = response.json().get('message')
+            detail = cls._error_detail(response.json())
         except ValueError:
-            message = None
-        return f'HTTP {response.status_code}: {message}' if message else f'HTTP {response.status_code}'
+            detail = None
+        return f'HTTP {response.status_code}: {detail}' if detail else f'HTTP {response.status_code}'
+
+    @staticmethod
+    def _error_detail(data):
+        if isinstance(data, dict):
+            return data.get('message') or data.get('error')
+        if isinstance(data, list):
+            messages = [
+                message
+                for item in data
+                if isinstance(item, dict)
+                for message in NeoshipClient._error_messages(item.get('errors'))
+            ]
+            return '; '.join(messages)
+        return None
+
+    @staticmethod
+    def _error_messages(errors):
+        if isinstance(errors, dict):
+            return [
+                f'{field}: {message}'
+                for field, messages in errors.items()
+                for message in (messages if isinstance(messages, list) else [messages])
+            ]
+        if isinstance(errors, list):
+            return [str(message) for message in errors]
+        return [str(errors)] if errors else []

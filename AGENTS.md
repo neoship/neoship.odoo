@@ -28,6 +28,7 @@ Context and plan live in `docs/` (`plan.md`, `user-journeys.html`, `open-questio
 
 - Standard tests mock Neoship (`tests/common.py`, `mock_neoship`) and are tagged `post_install`, `-at_install`.
 - Live tests against the Neoship test API use the `neoship_live` and `-standard` tags and read credentials from `.env`.
+- `neoship_live_shipment` creates and cancels a real shipment on the test API (uses test credit); run it only when the create/label/cancel contract needs re-checking.
 
 ## Git
 

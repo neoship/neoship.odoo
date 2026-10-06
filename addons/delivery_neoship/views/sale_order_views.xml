@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="view_order_form_neoship" model="ir.ui.view">
+        <field name="name">sale.order.form.neoship</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <group name="sale_shipping" position="inside">
+                <field name="neoship_parcelshop_id"/>
+            </group>
+        </field>
+    </record>
+</odoo>

@@ -7,12 +7,16 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='carrier_data']" position="after">
                 <group name="neoship_data" string="Neoship" invisible="delivery_type != 'neoship'">
-                    <field name="neoship_package_id"/>
-                    <field name="neoship_reference"/>
-                    <field name="neoship_status"/>
-                    <field name="neoship_last_sync"/>
-                    <field name="neoship_needs_review"/>
+                    <field name="neoship_package_id" invisible="not neoship_package_id"/>
+                    <field name="neoship_reference" invisible="not neoship_reference"/>
+                    <field name="neoship_status" invisible="not neoship_package_id"/>
+                    <field name="neoship_last_sync" invisible="not neoship_last_sync"/>
+                    <field name="neoship_needs_review" invisible="not neoship_needs_review"/>
                     <field name="neoship_error" invisible="not neoship_error"/>
+                    <field name="neoship_cod_amount" invisible="not neoship_package_id"/>
+                    <field name="neoship_cod_manual" readonly="neoship_package_id"/>
+                    <field name="neoship_cod_manual_amount" invisible="not neoship_cod_manual" readonly="neoship_package_id"/>
+                    <button name="action_neoship_download_label" type="object" string="Download Label Again" icon="fa-download" class="btn-link" invisible="not neoship_package_id" colspan="2"/>
                 </group>
             </xpath>
         </field>
