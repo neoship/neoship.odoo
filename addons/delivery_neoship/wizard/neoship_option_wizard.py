@@ -30,7 +30,7 @@ class NeoshipOptionWizardLine(models.TransientModel):
     value = fields.Integer(required=True)
     name = fields.Char(required=True)
     code = fields.Char()
-    country = fields.Char()
+    country_id = fields.Many2one('res.country')
     currency = fields.Char()
     supports_parcelshops = fields.Boolean(string='Pickup Points')
 
@@ -44,8 +44,8 @@ class NeoshipOptionWizardLine(models.TransientModel):
             carrier._neoship_set_shipper(self.value, self.code, self.name)
         elif wizard.shipper_id:
             carrier._neoship_set_shipper(
-                wizard.shipper_id, wizard.shipper_code, wizard.shipper_name, self.value, self.name
+                wizard.shipper_id, wizard.shipper_code, wizard.shipper_name, self.value, self.name, self.country_id.id
             )
         else:
-            carrier._neoship_set_carrier_type(self.value, self.name)
+            carrier._neoship_set_carrier_type(self.value, self.name, self.country_id.id)
         return {'type': 'ir.actions.act_window_close'}

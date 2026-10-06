@@ -126,6 +126,7 @@ class StockPicking(models.Model):
         if parcelshop:
             package['parcelshop'] = parcelshop
         elif carrier.neoship_has_carrier_type:
+            self._neoship_check_packeta_country(receiver)
             package['carrier_type'] = carrier.neoship_carrier_type
 
         package.update(self._neoship_cod_values())
@@ -175,6 +176,23 @@ class StockPicking(models.Model):
             )
         if problems:
             raise UserError('\n'.join([self.env._('Transfer %s cannot be sent to Neoship.', self.name), *problems]))
+
+    def _neoship_check_packeta_country(self, receiver):
+        carrier = self.carrier_id
+        country = carrier.neoship_carrier_type_country_id
+        if country and receiver.country_id != country:
+            raise UserError(
+                self.env._(
+                    'Packeta carrier %(carrier)s of delivery method %(method)s delivers only to %(country)s, '
+                    'but the recipient of transfer %(transfer)s is in %(recipient_country)s. '
+                    'Use the delivery method for that country.',
+                    carrier=carrier.neoship_carrier_type_name,
+                    method=carrier.name,
+                    country=country.name,
+                    transfer=self.name,
+                    recipient_country=receiver.country_id.name,
+                )
+            )
 
     def _neoship_weight_kg(self):
         weight = self.shipping_weight or self.weight or self.carrier_id.neoship_default_weight

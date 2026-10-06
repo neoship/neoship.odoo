@@ -433,11 +433,40 @@ class TestSendShipping(NeoshipCommon):
                 'neoship_shipper_code': 'Packeta',
                 'neoship_carrier_type': 131,
                 'neoship_carrier_type_name': 'SK Packeta Home HD',
+                'neoship_carrier_type_country_id': self.country_sk.id,
             }
         )
         package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
         self.assertEqual(package['carrier_type'], 131)
         self.assertNotIn('parcelshop', package)
+
+    def test_packeta_home_delivery_to_another_country_is_refused_before_calling_neoship(self):
+        self.carrier.write(
+            {
+                'neoship_shipper_code': 'Packeta',
+                'neoship_carrier_type': 106,
+                'neoship_carrier_type_name': 'CZ Zásilkovna domů HD',
+                'neoship_carrier_type_country_id': self.env.ref('base.cz').id,
+            }
+        )
+        with (
+            mock_neoship() as calls,
+            self.assertRaisesRegex(UserError, 'CZ Zásilkovna domů HD .* delivers only to Czech'),
+        ):
+            self._picking().send_to_shipper()
+        self.assertFalse(calls)
+
+    def test_packeta_pickup_point_skips_home_delivery_country(self):
+        self.carrier.write(
+            {
+                'neoship_shipper_code': 'Packeta',
+                'neoship_carrier_type': 106,
+                'neoship_carrier_type_country_id': self.env.ref('base.cz').id,
+            }
+        )
+        self.order.neoship_parcelshop_id = 'PS-1234'
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['parcelshop'], 'PS-1234')
 
     def test_packeta_pickup_point_does_not_send_carrier_type(self):
         self.carrier.write({'neoship_shipper_code': 'Packeta', 'neoship_carrier_type': 131})

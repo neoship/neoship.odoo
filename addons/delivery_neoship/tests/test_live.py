@@ -34,7 +34,8 @@ class TestNeoshipLive(BaseCase):
     def test_get_packeta_carriers(self):
         carriers = self.client.get_packeta_carriers()
         self.assertTrue(carriers)
-        self.assertTrue({'packeta_id', 'name', 'state'} <= set(carriers[0]))
+        self.assertTrue({'packeta_id', 'name', 'state_code'} <= set(carriers[0]))
+        self.assertTrue(all(len(carrier['state_code']) == 2 for carrier in carriers))
 
 
 @tagged('-standard', 'neoship_live_shipment')

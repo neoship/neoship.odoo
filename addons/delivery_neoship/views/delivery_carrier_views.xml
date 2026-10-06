@@ -38,6 +38,7 @@
                                 <field name="neoship_carrier_type_name" placeholder="Not selected" required="neoship_has_carrier_type"/>
                                 <button name="action_neoship_choose_carrier_type" type="object" string="Choose" icon="fa-list" class="btn-link"/>
                             </div>
+                            <field name="neoship_carrier_type_country_id" invisible="not neoship_has_carrier_type"/>
                         </group>
                     </group>
                     <group name="neoship_cod" string="Cash on Delivery">

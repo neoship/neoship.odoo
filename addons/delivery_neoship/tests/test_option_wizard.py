@@ -12,8 +12,22 @@ SHIPPERS = [
     {'id': 4, 'name': '123kuriér', 'shortcut': '123', 'supports_parcelshops': False},
 ]
 PACKETA_CARRIERS = [
-    {'id': 9, 'packeta_id': 131, 'name': 'SK Packeta Home HD', 'currency': 'EUR', 'state': 'Slovensko'},
-    {'id': 2, 'packeta_id': 106, 'name': 'CZ Zásilkovna domů HD', 'currency': 'CZK', 'state': 'Česko'},
+    {
+        'id': 9,
+        'packeta_id': 131,
+        'name': 'SK Packeta Home HD',
+        'currency': 'EUR',
+        'state': 'Slovensko',
+        'state_code': 'SK',
+    },
+    {
+        'id': 2,
+        'packeta_id': 106,
+        'name': 'CZ Zásilkovna domů HD',
+        'currency': 'CZK',
+        'state': 'Česko',
+        'state_code': 'CZ',
+    },
 ]
 
 
@@ -70,6 +84,7 @@ class TestOptionWizard(NeoshipCommon):
         self.assertEqual(self.carrier.neoship_shipper_id, 3)
         self.assertEqual(self.carrier.neoship_carrier_type, 131)
         self.assertEqual(self.carrier.neoship_carrier_type_name, 'SK Packeta Home HD')
+        self.assertEqual(self.carrier.neoship_carrier_type_country_id, self.env.ref('base.sk'))
 
     def test_change_packeta_home_delivery_carrier(self):
         self._choose_packeta('SK Packeta Home HD')
@@ -77,6 +92,21 @@ class TestOptionWizard(NeoshipCommon):
         self._select(wizard, 'CZ Zásilkovna domů HD')
         self.assertEqual(self.carrier.neoship_shipper_id, 3)
         self.assertEqual(self.carrier.neoship_carrier_type, 106)
+        self.assertEqual(self.carrier.neoship_carrier_type_country_id, self.env.ref('base.cz'))
+
+    def test_packeta_carrier_countries_come_from_state_code(self):
+        wizard, _calls = self._open('action_neoship_choose_carrier_type', PACKETA_CARRIERS)
+        countries = {line.name: line.country_id for line in wizard.line_ids}
+        self.assertEqual(countries['SK Packeta Home HD'], self.env.ref('base.sk'))
+        self.assertEqual(countries['CZ Zásilkovna domů HD'], self.env.ref('base.cz'))
+
+    def test_unknown_packeta_country_code_is_left_empty(self):
+        carriers = [{**PACKETA_CARRIERS[0], 'packeta_id': 999, 'name': 'XX New Carrier HD', 'state_code': 'XX'}]
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, _calls = self._open('action_neoship_choose_carrier_type', carriers)
+        self._select(wizard, 'XX New Carrier HD')
+        self.assertEqual(self.carrier.neoship_carrier_type, 999)
+        self.assertFalse(self.carrier.neoship_carrier_type_country_id)
 
     def test_packeta_without_home_delivery_carrier_is_rejected(self):
         with self.assertRaises(ValidationError):
@@ -88,6 +118,7 @@ class TestOptionWizard(NeoshipCommon):
         self._select(wizard, 'SPS')
         self.assertFalse(self.carrier.neoship_carrier_type)
         self.assertFalse(self.carrier.neoship_carrier_type_name)
+        self.assertFalse(self.carrier.neoship_carrier_type_country_id)
 
     def test_switching_environment_clears_carrier(self):
         self._choose_packeta('SK Packeta Home HD')

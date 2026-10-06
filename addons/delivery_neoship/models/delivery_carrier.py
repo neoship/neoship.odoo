@@ -47,6 +47,12 @@ class DeliveryCarrier(models.Model):
         readonly=True,
         help='Packeta carrier used for delivery to an address. Pickup point orders go to the pickup point.',
     )
+    neoship_carrier_type_country_id = fields.Many2one(
+        'res.country',
+        string='Packeta Home Delivery Country',
+        readonly=True,
+        help='Country of the Packeta home delivery carrier. Recipients in other countries are refused before sending.',
+    )
     neoship_default_weight = fields.Float(
         digits='Stock Weight',
         help='Used when the delivery order has no weight.',
@@ -179,11 +185,13 @@ class DeliveryCarrier(models.Model):
 
     def _neoship_open_carrier_type_wizard(self, shipper_id=False, shipper_code=False, shipper_name=False):
         carriers = self._neoship_fetch(lambda client: client.get_packeta_carriers())
+        countries = self.env['res.country'].search([('code', 'in', [carrier['state_code'] for carrier in carriers])])
+        country_ids = {country.code: country.id for country in countries}
         lines = [
             {
                 'value': carrier['packeta_id'],
                 'name': carrier['name'],
-                'country': carrier.get('state'),
+                'country_id': country_ids.get(carrier['state_code'], False),
                 'currency': carrier.get('currency'),
             }
             for carrier in carriers
@@ -221,19 +229,27 @@ class DeliveryCarrier(models.Model):
             'target': 'new',
         }
 
-    def _neoship_set_shipper(self, shipper_id, code, name, carrier_type=False, carrier_type_name=False):
+    def _neoship_set_shipper(
+        self, shipper_id, code, name, carrier_type=False, carrier_type_name=False, carrier_type_country_id=False
+    ):
         self.write(
             {
                 'neoship_shipper_id': shipper_id,
                 'neoship_shipper_code': code,
                 'neoship_shipper_name': name,
-                'neoship_carrier_type': carrier_type,
-                'neoship_carrier_type_name': carrier_type_name,
+                **self._neoship_carrier_type_values(carrier_type, carrier_type_name, carrier_type_country_id),
             }
         )
 
-    def _neoship_set_carrier_type(self, carrier_type, name):
-        self.write({'neoship_carrier_type': carrier_type, 'neoship_carrier_type_name': name})
+    def _neoship_set_carrier_type(self, carrier_type, name, country_id=False):
+        self.write(self._neoship_carrier_type_values(carrier_type, name, country_id))
+
+    def _neoship_carrier_type_values(self, carrier_type, name, country_id):
+        return {
+            'neoship_carrier_type': carrier_type,
+            'neoship_carrier_type_name': name,
+            'neoship_carrier_type_country_id': country_id,
+        }
 
     def neoship_rate_shipment(self, order):
         return self.fixed_rate_shipment(order)

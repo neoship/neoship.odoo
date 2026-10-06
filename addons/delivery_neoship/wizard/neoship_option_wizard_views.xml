@@ -12,7 +12,7 @@
                         <field name="name"/>
                         <field name="code" column_invisible="parent.kind != 'shipper'"/>
                         <field name="supports_parcelshops" column_invisible="parent.kind != 'shipper'"/>
-                        <field name="country" column_invisible="parent.kind != 'carrier_type'"/>
+                        <field name="country_id" column_invisible="parent.kind != 'carrier_type'"/>
                         <field name="currency" column_invisible="parent.kind != 'carrier_type'"/>
                         <button name="action_select" type="object" string="Select" class="btn-primary"/>
                     </list>
