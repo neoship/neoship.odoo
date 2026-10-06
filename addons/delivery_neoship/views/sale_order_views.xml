@@ -5,6 +5,11 @@
         <field name="model">sale.order</field>
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
+            <div name="button_box" position="inside">
+                <button name="action_view_neoship_shipments" type="object" class="oe_stat_button" icon="fa-cube" invisible="neoship_shipment_count == 0">
+                    <field name="neoship_shipment_count" widget="statinfo" string="Neoship"/>
+                </button>
+            </div>
             <group name="sale_shipping" position="inside">
                 <field name="neoship_parcelshop_id"/>
             </group>

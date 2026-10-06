@@ -21,4 +21,23 @@
             </xpath>
         </field>
     </record>
+
+    <record id="view_picking_neoship_shipment_list" model="ir.ui.view">
+        <field name="name">stock.picking.list.neoship.shipment</field>
+        <field name="model">stock.picking</field>
+        <field name="priority" eval="100"/>
+        <field name="arch" type="xml">
+            <list create="false">
+                <field name="name"/>
+                <field name="date_done"/>
+                <field name="carrier_id"/>
+                <field name="carrier_tracking_ref"/>
+                <field name="neoship_status"/>
+                <field name="neoship_cod_amount"/>
+                <field name="state" widget="badge" optional="hide"/>
+                <button name="action_neoship_open_label" type="object" string="Label" icon="fa-file-pdf-o"/>
+                <button name="open_website_url" type="object" string="Tracking" icon="fa-truck"/>
+            </list>
+        </field>
+    </record>
 </odoo>

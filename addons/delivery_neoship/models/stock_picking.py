@@ -221,8 +221,31 @@ class StockPicking(models.Model):
         label = client.get_label(self.neoship_package_id)
         if not isinstance(label, bytes):
             raise NeoshipError(f'Unexpected label response for package {self.neoship_package_id}')
-        name = f'{self.carrier_id._get_delivery_label_prefix()}-{tracking_number}.pdf'
+        name = self._neoship_label_name(tracking_number)
         self.message_post(body=self.env._('Neoship shipping label'), attachments=[(name, label)])
+
+    def _neoship_label_name(self, tracking_number):
+        return f'{self.carrier_id._get_delivery_label_prefix()}-{tracking_number}.pdf'
+
+    def _neoship_label(self):
+        self.ensure_one()
+        return self.env['ir.attachment'].search(
+            [
+                ('res_model', '=', self._name),
+                ('res_id', '=', self.id),
+                ('name', '=', self._neoship_label_name(self.carrier_tracking_ref)),
+            ],
+            order='id desc',
+            limit=1,
+        )
+
+    def action_neoship_open_label(self):
+        self.ensure_one()
+        label = self._neoship_label()
+        if not label:
+            self.action_neoship_download_label()
+            label = self._neoship_label()
+        return {'type': 'ir.actions.act_url', 'url': f'/web/content/{label.id}', 'target': 'new'}
 
     def action_neoship_download_label(self):
         self.ensure_one()

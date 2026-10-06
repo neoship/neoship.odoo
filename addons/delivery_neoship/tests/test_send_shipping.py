@@ -502,6 +502,48 @@ class TestSendShipping(NeoshipCommon):
         self.order.action_cancel()
         self.assertEqual(self.order.state, 'cancel')
 
+    def test_order_shows_its_neoship_shipments(self):
+        picking = self._picking()
+        self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        self.assertEqual(self.order.neoship_shipment_count, 1)
+        action = self.order.action_view_neoship_shipments()
+        self.assertEqual(self.env['stock.picking'].search(action['domain']), picking)
+
+        picking.state = 'done'
+        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={})):
+            picking.cancel_shipment()
+        self.assertEqual(self.order.neoship_shipment_count, 0)
+
+    def test_label_opens_without_calling_neoship(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        attachment = picking._neoship_label()
+        with mock_neoship() as calls:
+            action = picking.action_neoship_open_label()
+        self.assertFalse(calls)
+        self.assertEqual(action['url'], f'/web/content/{attachment.id}')
+
+    def test_missing_label_is_downloaded_before_opening(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), make_response(500, {'message': 'Storage down'}))
+        with mock_neoship(make_response(json_data=LOGIN_OK), label()):
+            action = picking.action_neoship_open_label()
+        attachment = picking._neoship_label()
+        self.assertEqual(attachment.raw, PDF)
+        self.assertEqual(action['url'], f'/web/content/{attachment.id}')
+
+    def test_salesman_opens_shipment_label_from_order(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        user = new_test_user(self.env, login='neoship_salesman', groups='sales_team.group_sale_salesman')
+        self.order.user_id = user
+        order = self.order.with_user(user)
+        self.assertEqual(order.neoship_shipment_count, 1)
+        shipment = self.env['stock.picking'].with_user(user).search(order.action_view_neoship_shipments()['domain'])
+        action = shipment.action_neoship_open_label()
+        self.assertEqual(action['url'], f'/web/content/{picking._neoship_label().id}')
+
     def test_validation_by_warehouse_user_sends_shipment(self):
         self.warehouse.out_type_id.print_label = True
         user = new_test_user(self.env, login='neoship_stock_user', groups='stock.group_stock_user')
