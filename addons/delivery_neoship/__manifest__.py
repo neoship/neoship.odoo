@@ -6,6 +6,7 @@
     'depends': ['stock_delivery'],
     'data': [
         'security/ir.model.access.csv',
+        'data/ir_cron_data.xml',
         'wizard/neoship_option_wizard_views.xml',
         'views/delivery_carrier_views.xml',
         'views/stock_picking_views.xml',

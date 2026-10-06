@@ -13,12 +13,13 @@ SHIPPERS = [
 ]
 PACKETA_CARRIERS = [
     {
-        'id': 9,
+        'id': 3,
         'packeta_id': 131,
         'name': 'SK Packeta Home HD',
         'currency': 'EUR',
         'state': 'Slovensko',
         'state_code': 'SK',
+        'available': True,
     },
     {
         'id': 2,
@@ -27,6 +28,7 @@ PACKETA_CARRIERS = [
         'currency': 'CZK',
         'state': 'Česko',
         'state_code': 'CZ',
+        'available': True,
     },
 ]
 

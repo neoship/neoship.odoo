@@ -10,15 +10,51 @@
                     <field name="neoship_package_id" invisible="not neoship_package_id"/>
                     <field name="neoship_reference" invisible="not neoship_reference"/>
                     <field name="neoship_status" invisible="not neoship_package_id"/>
+                    <field name="neoship_status_group" widget="badge" invisible="not neoship_status_group" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
+                    <field name="neoship_status_date" invisible="not neoship_status_date"/>
                     <field name="neoship_last_sync" invisible="not neoship_last_sync"/>
-                    <field name="neoship_needs_review" invisible="not neoship_needs_review"/>
                     <field name="neoship_error" invisible="not neoship_error"/>
+                    <field name="neoship_sync_error" invisible="not neoship_sync_error"/>
                     <field name="neoship_cod_amount" invisible="not neoship_package_id"/>
                     <field name="neoship_cod_manual" readonly="neoship_package_id"/>
                     <field name="neoship_cod_manual_amount" invisible="not neoship_cod_manual" readonly="neoship_package_id"/>
                     <button name="action_neoship_download_label" type="object" string="Download Label Again" icon="fa-download" class="btn-link" invisible="not neoship_package_id" colspan="2"/>
+                    <button name="action_neoship_update_tracking" type="object" string="Update Tracking" icon="fa-refresh" class="btn-link" invisible="not neoship_package_id or not carrier_tracking_ref" colspan="2"/>
                 </group>
             </xpath>
+        </field>
+    </record>
+
+    <record id="vpicktree_neoship" model="ir.ui.view">
+        <field name="name">stock.picking.list.neoship</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock_delivery.vpicktree_view_tree"/>
+        <field name="arch" type="xml">
+            <field name="carrier_tracking_ref" position="after">
+                <field name="neoship_status_group" widget="badge" optional="show" column_invisible="context.get('restricted_picking_type_code') == 'incoming'" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
+                <field name="neoship_status" optional="hide" column_invisible="context.get('restricted_picking_type_code') == 'incoming'"/>
+            </field>
+        </field>
+    </record>
+
+    <record id="view_picking_internal_search_neoship" model="ir.ui.view">
+        <field name="name">stock.picking.search.neoship</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_internal_search"/>
+        <field name="arch" type="xml">
+            <filter name="backorder" position="after">
+                <separator/>
+                <filter name="neoship_new" string="Neoship: New" domain="[('neoship_status_group', '=', 'new')]"/>
+                <filter name="neoship_exported" string="Neoship: Exported" domain="[('neoship_status_group', '=', 'exported')]"/>
+                <filter name="neoship_transit" string="Neoship: In Transit" domain="[('neoship_status_group', '=', 'transit')]"/>
+                <filter name="neoship_delivered" string="Neoship: Delivered" domain="[('neoship_status_group', '=', 'delivered')]"/>
+                <filter name="neoship_not_delivered" string="Neoship: Not Delivered" domain="[('neoship_status_group', '=', 'notdelivered')]"/>
+                <filter name="neoship_returned" string="Neoship: Returned" domain="[('neoship_status_group', '=', 'returned')]"/>
+                <filter name="neoship_cancel" string="Neoship: Cancelled" domain="[('neoship_status_group', '=', 'cancel')]"/>
+            </filter>
+            <group position="inside">
+                <filter name="group_neoship_status_group" string="Neoship Delivery" context="{'group_by': 'neoship_status_group'}"/>
+            </group>
         </field>
     </record>
 
@@ -33,6 +69,7 @@
                 <field name="carrier_id"/>
                 <field name="carrier_tracking_ref"/>
                 <field name="neoship_status"/>
+                <field name="neoship_status_group" widget="badge" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
                 <field name="neoship_cod_amount"/>
                 <field name="state" widget="badge" optional="hide"/>
                 <button name="action_neoship_open_label" type="object" string="Label" icon="fa-file-pdf-o"/>

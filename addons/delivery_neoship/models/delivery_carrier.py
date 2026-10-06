@@ -273,7 +273,7 @@ class DeliveryCarrier(models.Model):
                     'neoship_reference': package['reference_number'],
                     'neoship_cod_amount': package.get('cod_price', 0.0),
                     'neoship_error': False,
-                    'neoship_needs_review': False,
+                    **picking._neoship_tracking_reset_values(),
                 }
             )
             try:
@@ -413,4 +413,11 @@ class DeliveryCarrier(models.Model):
                 continue
             except NeoshipError as e:
                 raise self._neoship_user_error(e) from e
-            picking.write({'neoship_package_id': False, 'neoship_cod_amount': 0.0, 'neoship_error': False})
+            picking.write(
+                {
+                    'neoship_package_id': False,
+                    'neoship_cod_amount': 0.0,
+                    'neoship_error': False,
+                    **picking._neoship_tracking_reset_values(),
+                }
+            )

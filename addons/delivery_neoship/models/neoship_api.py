@@ -73,6 +73,9 @@ class NeoshipClient:
         except NeoshipNotFoundError:
             return []
 
+    def get_package(self, package_id):
+        return self.request('GET', f'/package/{package_id}')
+
     def get_label(self, package_id):
         return self.request('GET', f'/package/{package_id}/label')
 
