@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="stock_package_view_form_neoship" model="ir.ui.view">
+        <field name="name">stock.package.form.neoship</field>
+        <field name="model">stock.package</field>
+        <field name="inherit_id" ref="stock.stock_package_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/group" position="after">
+                <group name="neoship_data" string="Neoship" invisible="not neoship_package_id">
+                    <field name="neoship_package_id"/>
+                    <field name="neoship_reference"/>
+                    <field name="neoship_tracking_ref"/>
+                    <field name="neoship_status"/>
+                    <field name="neoship_status_group" widget="badge" invisible="not neoship_status_group" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
+                </group>
+            </xpath>
+        </field>
+    </record>
+</odoo>

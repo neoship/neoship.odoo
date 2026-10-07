@@ -26,10 +26,11 @@ class TestNeoshipLive(BaseCase):
     def test_login(self):
         self.assertTrue(self.client.login())
 
-    def test_get_shippers(self):
-        shippers = self.client.get_shippers()
+    def test_get_active_shippers(self):
+        shippers = self.client.get_active_shippers()
         self.assertTrue(shippers)
-        self.assertTrue({'id', 'name', 'shortcut'} <= set(shippers[0]))
+        self.assertTrue({'id', 'name', 'shortcut', 'delivery_types'} <= set(shippers[0]))
+        self.assertTrue({'type', 'countries'} <= set(shippers[0]['delivery_types'][0]))
 
     def test_get_packeta_carriers(self):
         carriers = self.client.get_packeta_carriers()
@@ -76,7 +77,7 @@ class TestNeoshipLiveShipment(TransactionCase):
             }
         )
         with carrier._neoship_client() as client:
-            sps = next(shipper for shipper in client.get_shippers() if shipper['shortcut'] == 'SPS')
+            sps = next(shipper for shipper in client.get_active_shippers() if shipper['shortcut'] == 'SPS')
         carrier._neoship_set_shipper(sps['id'], sps['shortcut'], sps['name'])
         product = self.env['product.product'].create({'name': 'Live test item', 'type': 'consu', 'weight': 0.5})
         picking = self.env['stock.picking'].create(

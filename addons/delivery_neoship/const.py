@@ -7,6 +7,9 @@ SHIPPER_CODE_DPD = 'dpd'
 SHIPPER_CODE_SK_POSTA = 'sk_posta'
 SHIPPER_CODE_SDS = 'sds'
 SHIPPER_CODES_WITH_CARRIER_TYPE = (SHIPPER_CODE_PACKETA,)
+# Neoship ignores count_of_packages for these carriers, so each pack is sent as its own shipment.
+SHIPPER_CODES_SHIPMENT_PER_PACK = (SHIPPER_CODE_PACKETA,)
+SHIPPER_DELIVERY_TYPE_PARCELSHOP = 'parcelshop'
 
 # Carrier-specific formats from ../api, ../neoship-app and Neoship's API documentation.
 # The API endpoint otherwise forces GLS's A4_2x2 for every shipper.
@@ -34,6 +37,7 @@ SHIPMENT_MATCH_FIELDS = (
     'cod_currency_code',
 )
 COD_PRECISION_DIGITS = 2
+COD_FIELDS = ('cod_price', 'cod_currency_code', 'cod_reference')
 
 STATUS_GROUP_NEW = 'new'
 STATUS_GROUP_EXPORTED = 'exported'

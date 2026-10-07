@@ -12,8 +12,43 @@ from .neoship_api import NeoshipError, NeoshipNotFoundError
 _logger = logging.getLogger(__name__)
 
 
+NEOSHIP_STATUS_GROUPS = [
+    (const.STATUS_GROUP_NEW, 'New'),
+    (const.STATUS_GROUP_EXPORTED, 'Exported'),
+    (const.STATUS_GROUP_TRANSIT, 'In Transit'),
+    (const.STATUS_GROUP_DELIVERED, 'Delivered'),
+    (const.STATUS_GROUP_NOT_DELIVERED, 'Not Delivered'),
+    (const.STATUS_GROUP_RETURNED, 'Returned'),
+    (const.STATUS_GROUP_CANCEL, 'Cancelled'),
+]
+
+
 def neoship_code(value):
     return re.sub(const.REFERENCE_INVALID_CHARS, '-', value or '').strip('-')[: const.REFERENCE_MAX_LENGTH]
+
+
+def neoship_status_group(status):
+    group = status.get('group')
+    return group if group in const.STATUS_GROUPS else False
+
+
+def neoship_combined_status_group(groups):
+    for problem in (const.STATUS_GROUP_RETURNED, const.STATUS_GROUP_NOT_DELIVERED):
+        if problem in groups:
+            return problem
+    active = [group for group in groups if group != const.STATUS_GROUP_CANCEL]
+    if not active:
+        return const.STATUS_GROUP_CANCEL
+    if not all(active):
+        return False
+    return min(active, key=const.STATUS_GROUPS.index)
+
+
+def neoship_parcel_reference(reference, sequence):
+    if sequence == 1:
+        return reference
+    suffix = f'-{sequence}'
+    return reference[: const.REFERENCE_MAX_LENGTH - len(suffix)] + suffix
 
 
 class StockPicking(models.Model):
@@ -25,15 +60,7 @@ class StockPicking(models.Model):
     neoship_status = fields.Char(copy=False, readonly=True)
     neoship_status_id = fields.Integer(string='Neoship Status ID', copy=False, readonly=True)
     neoship_status_group = fields.Selection(
-        [
-            (const.STATUS_GROUP_NEW, 'New'),
-            (const.STATUS_GROUP_EXPORTED, 'Exported'),
-            (const.STATUS_GROUP_TRANSIT, 'In Transit'),
-            (const.STATUS_GROUP_DELIVERED, 'Delivered'),
-            (const.STATUS_GROUP_NOT_DELIVERED, 'Not Delivered'),
-            (const.STATUS_GROUP_RETURNED, 'Returned'),
-            (const.STATUS_GROUP_CANCEL, 'Cancelled'),
-        ],
+        NEOSHIP_STATUS_GROUPS,
         string='Neoship Delivery',
         copy=False,
         readonly=True,
@@ -59,6 +86,11 @@ class StockPicking(models.Model):
         ),
     )
     neoship_cod_manual_amount = fields.Float(string='Cash on Delivery Amount', digits='Product Price', copy=False)
+    neoship_shipment_per_pack = fields.Boolean(
+        copy=False,
+        readonly=True,
+        help='Each pack was sent as its own Neoship shipment.',
+    )
 
     _neoship_reference_uniq = models.Constraint(
         'UNIQUE(neoship_reference)',
@@ -115,6 +147,66 @@ class StockPicking(models.Model):
                 )
             )
 
+    def _neoship_prepare_packages(self):
+        self.ensure_one()
+        package = self._neoship_prepare_package()
+        packs = self._neoship_packs()
+        if packs and self.move_line_ids.filtered(lambda line: not line.result_package_id):
+            raise UserError(
+                self.env._(
+                    'Put all products of transfer %s in packs, or none of them: Neoship sends one parcel per pack.',
+                    self.name,
+                )
+            )
+        if self._neoship_ships_pack_per_shipment(packs):
+            packages = []
+            for sequence, pack in enumerate(packs, start=1):
+                parcel = dict(package)
+                if sequence > 1:
+                    for field in const.COD_FIELDS:
+                        parcel.pop(field, None)
+                parcel['reference_number'] = neoship_parcel_reference(package['reference_number'], sequence)
+                weight = self._neoship_weight_kg(pack.shipping_weight or pack.weight)
+                self._neoship_set_weight(parcel, weight, pack.name)
+                packages.append(parcel)
+            return packages
+        count = len(packs) or 1
+        package['count_of_packages'] = count
+        # Neoship copies the main package's weight to every extra parcel.
+        self._neoship_set_weight(package, float_round(self._neoship_weight_kg() / count, precision_digits=3))
+        return [package]
+
+    def _neoship_packs(self):
+        return self.move_line_ids.result_package_id.outermost_package_id.sorted('id').with_context(picking_id=self.id)
+
+    def _neoship_ships_pack_per_shipment(self, packs):
+        # Neoship creates extra parcels from count_of_packages only for home delivery and not for Packeta.
+        return len(packs) > 1 and (
+            self.carrier_id._neoship_ships_pack_per_shipment() or bool(self.sale_id.neoship_parcelshop_id)
+        )
+
+    def _neoship_set_weight(self, package, weight, parcel_name=None):
+        if self.carrier_id.neoship_has_carrier_type and not 0 < weight <= const.PACKETA_MAX_WEIGHT_KG:
+            if parcel_name:
+                message = self.env._(
+                    'Packeta needs a weight between 0 and %(max)s kg for each parcel, '
+                    'parcel %(parcel)s of transfer %(transfer)s has %(weight)s kg.',
+                    max=const.PACKETA_MAX_WEIGHT_KG,
+                    parcel=parcel_name,
+                    transfer=self.name,
+                    weight=weight,
+                )
+            else:
+                message = self.env._(
+                    'Packeta needs a weight between 0 and %(max)s kg, transfer %(transfer)s has %(weight)s kg.',
+                    max=const.PACKETA_MAX_WEIGHT_KG,
+                    transfer=self.name,
+                    weight=weight,
+                )
+            raise UserError(message)
+        if weight > 0:
+            package['weight'] = weight
+
     def _neoship_prepare_package(self):
         self.ensure_one()
         carrier = self.carrier_id
@@ -126,22 +218,8 @@ class StockPicking(models.Model):
             **self._neoship_address_values(
                 'receiver', receiver, receiver | self.sale_id.partner_id | receiver.commercial_partner_id
             ),
-            'count_of_packages': len(self.move_line_ids.result_package_id.outermost_package_id) or 1,
         }
         self._neoship_check_addresses(package, sender, receiver)
-
-        weight = self._neoship_weight_kg()
-        if carrier.neoship_has_carrier_type and not 0 < weight <= const.PACKETA_MAX_WEIGHT_KG:
-            raise UserError(
-                self.env._(
-                    'Packeta needs a weight between 0 and %(max)s kg, transfer %(transfer)s has %(weight)s kg.',
-                    max=const.PACKETA_MAX_WEIGHT_KG,
-                    transfer=self.name,
-                    weight=weight,
-                )
-            )
-        if weight > 0:
-            package['weight'] = weight
 
         parcelshop = self.sale_id.neoship_parcelshop_id
         if parcelshop:
@@ -215,8 +293,10 @@ class StockPicking(models.Model):
                 )
             )
 
-    def _neoship_weight_kg(self):
-        weight = self.shipping_weight or self.weight or self.carrier_id.neoship_default_weight
+    def _neoship_weight_kg(self, weight=None):
+        if weight is None:
+            weight = self.shipping_weight or self.weight
+        weight = weight or self.carrier_id.neoship_default_weight
         weight_uom = self.env['product.template']._get_weight_uom_id_from_ir_config_parameter()
         weight_kg = weight_uom._compute_quantity(weight, self.env.ref(const.ODOO_UOM_KG), round=False)
         return float_round(weight_kg, precision_digits=3)
@@ -264,7 +344,38 @@ class StockPicking(models.Model):
         self.message_post(body=self.env._('Neoship shipping label'), attachments=[(name, label)])
 
     def _neoship_label_name(self, tracking_number):
-        return f'{self.carrier_id._get_delivery_label_prefix()}-{tracking_number}.pdf'
+        return f'{self.carrier_id._get_delivery_label_prefix()}-{(tracking_number or "").replace(",", "-")}.pdf'
+
+    def _neoship_sent_packs(self):
+        self.ensure_one()
+        return self._neoship_packs().filtered(
+            lambda pack: (
+                pack.neoship_package_id and (pack.neoship_reference or '').startswith(self.neoship_reference or '')
+            )
+        )
+
+    def _neoship_shipments_to_cancel(self):
+        self.ensure_one()
+        if self.neoship_shipment_per_pack:
+            return [(pack.neoship_package_id, pack.neoship_tracking_ref) for pack in self._neoship_sent_packs()]
+        return [(self.neoship_package_id, self.carrier_tracking_ref)]
+
+    def _neoship_store_parcels(self, parcels):
+        self.ensure_one()
+        packs = self._neoship_packs()
+        if len(parcels) == len(packs):
+            values = [
+                {
+                    'neoship_package_id': parcel['id'],
+                    'neoship_reference': parcel.get('reference_number'),
+                    'neoship_tracking_ref': parcel.get('tracking_number'),
+                }
+                for parcel in parcels
+            ]
+        else:
+            values = [{}] * len(packs)
+        for pack, pack_values in zip(packs, values, strict=True):
+            pack.write({**pack._neoship_clear_values(), **pack_values})
 
     def _neoship_label(self):
         self.ensure_one()
@@ -406,7 +517,7 @@ class StockPicking(models.Model):
         return stats
 
     def _neoship_sync_batch(self, client):
-        shipments = client.find_packages(self.mapped('neoship_reference'))
+        shipments = client.find_packages([reference for picking in self for reference in picking._neoship_references()])
         by_id = {shipment['id']: shipment for shipment in shipments}
         changed = failed = 0
         for picking in self:
@@ -436,23 +547,42 @@ class StockPicking(models.Model):
                     picking._neoship_sync_failed(picking.carrier_id._neoship_user_error(e).args[0])
                     failed += 1
                     continue
-            changed += picking._neoship_apply_status(shipment)
+            changed += picking._neoship_apply_status(shipment, by_id)
         return changed, failed
 
-    def _neoship_apply_status(self, shipment):
+    def _neoship_references(self):
         self.ensure_one()
+        return list(dict.fromkeys([self.neoship_reference, *self._neoship_sent_packs().mapped('neoship_reference')]))
+
+    def _neoship_apply_status(self, shipment, shipments_by_id=None):
+        self.ensure_one()
+        shipments_by_id = {**(shipments_by_id or {}), shipment['id']: shipment}
+        packs = self._neoship_sent_packs()
+        for pack in packs:
+            pack_shipment = shipments_by_id.get(pack.neoship_package_id)
+            if pack_shipment:
+                pack_status = pack_shipment.get('last_status') or {}
+                pack.write(
+                    {
+                        'neoship_status': pack_status.get('name') or False,
+                        'neoship_status_group': neoship_status_group(pack_status),
+                    }
+                )
         status = shipment.get('last_status') or {}
         status_id = status.get('id') or 0
-        group = status.get('group')
-        if group not in const.STATUS_GROUPS:
-            group = False
+        if len(packs) > 1:
+            group = neoship_combined_status_group(packs.mapped('neoship_status_group'))
+            name = '; '.join(f'{pack.neoship_tracking_ref}: {pack.neoship_status or "-"}' for pack in packs)
+        else:
+            group = neoship_status_group(status)
+            name = status.get('name') or False
         vals = {
-            'neoship_status': status.get('name') or False,
+            'neoship_status': name,
             'neoship_status_group': group,
             'neoship_last_sync': fields.Datetime.now(),
             'neoship_sync_error': False,
         }
-        status_changed = status_id != self.neoship_status_id
+        status_changed = status_id != self.neoship_status_id or name != self.neoship_status
         if status_changed:
             vals.update({'neoship_status_id': status_id, 'neoship_status_date': fields.Datetime.now()})
         group_changed = group != self.neoship_status_group

@@ -10,6 +10,7 @@
         'wizard/neoship_option_wizard_views.xml',
         'views/delivery_carrier_views.xml',
         'views/stock_picking_views.xml',
+        'views/stock_package_views.xml',
         'views/sale_order_views.xml',
         'views/neoship_closure_views.xml',
     ],

@@ -58,8 +58,8 @@ class NeoshipClient:
         self.session.headers['Authorization'] = f'Bearer {data["token"]}'
         return data['token']
 
-    def get_shippers(self):
-        return self.request('GET', '/shipper/')
+    def get_active_shippers(self):
+        return self.request('GET', '/shipper/active')
 
     def get_packeta_carriers(self):
         return self.request('GET', '/carrier/available')

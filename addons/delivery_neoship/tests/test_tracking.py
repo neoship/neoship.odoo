@@ -20,6 +20,17 @@ STATUS_TRANSIT = {'id': 109, 'name': 'Prvá registrácia', 'group': 'transit'}
 STATUS_DELIVERED = {'id': 120, 'name': 'Doručená', 'group': 'delivered'}
 STATUS_NOT_DELIVERED = {'id': 129, 'name': 'Adresát neznámy', 'group': 'notdelivered'}
 STATUS_CANCEL = {'id': 256, 'name': 'Stornovať', 'group': 'cancel'}
+STATUS_RETURNED = {'id': 140, 'name': 'Vrátená odosielateľovi', 'group': 'returned'}
+
+
+def parcel(pack, status):
+    return {
+        'id': pack.neoship_package_id,
+        'reference_number': pack.neoship_reference,
+        'tracking_number': pack.neoship_tracking_ref,
+        'last_status': status,
+        'shipper': SPS,
+    }
 
 
 def shipment(picking, status):
@@ -66,6 +77,45 @@ class TestTracking(NeoshipCommon):
             }
         )
         return picking
+
+    def _shipped_in_packs(self, count):
+        picking = self._shipped()
+        product = self.env['product.product'].create({'name': 'Packed item', 'type': 'consu'})
+        move = self.env['stock.move'].create(
+            {
+                'picking_id': picking.id,
+                'product_id': product.id,
+                'product_uom_qty': count,
+                'location_id': self.out_type.default_location_src_id.id,
+                'location_dest_id': self.env.ref('stock.stock_location_customers').id,
+            }
+        )
+        trackings = []
+        for sequence in range(1, count + 1):
+            reference = picking.neoship_reference if sequence == 1 else f'{picking.neoship_reference}{sequence - 1}'
+            tracking = f'{picking.carrier_tracking_ref}-{sequence}'
+            pack = self.env['stock.package'].create(
+                {
+                    'name': f'PACK-{picking.id}-{sequence}',
+                    'neoship_package_id': picking.neoship_package_id + 1000 * (sequence - 1),
+                    'neoship_reference': reference,
+                    'neoship_tracking_ref': tracking,
+                }
+            )
+            self.env['stock.move.line'].create(
+                {
+                    'move_id': move.id,
+                    'picking_id': picking.id,
+                    'product_id': product.id,
+                    'quantity': 1,
+                    'location_id': move.location_id.id,
+                    'location_dest_id': move.location_dest_id.id,
+                    'result_package_id': pack.id,
+                }
+            )
+            trackings.append(tracking)
+        picking.carrier_tracking_ref = ','.join(trackings)
+        return picking, picking._neoship_packs()
 
     def _sync(self, *responses, pickings=None):
         with mock_neoship(*responses) as calls:
@@ -322,3 +372,48 @@ class TestTracking(NeoshipCommon):
 
     def _tracking_domain(self):
         return self.env['stock.picking']._neoship_tracking_domain(fields.Datetime.now() - timedelta(days=30))
+
+    def test_each_pack_gets_its_status_and_the_transfer_the_least_advanced_one(self):
+        picking, packs = self._shipped_in_packs(2)
+        calls = self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_TRANSIT)),
+            pickings=picking,
+        )
+        self.assertEqual(calls[1]['json']['reference_numbers'], packs.mapped('neoship_reference'))
+        self.assertEqual(
+            packs.mapped('neoship_status_group'), [const.STATUS_GROUP_DELIVERED, const.STATUS_GROUP_TRANSIT]
+        )
+        self.assertEqual(packs.mapped('neoship_status'), ['Doručená', 'Prvá registrácia'])
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertEqual(
+            picking.neoship_status,
+            f'{packs[0].neoship_tracking_ref}: Doručená; {packs[1].neoship_tracking_ref}: Prvá registrácia',
+        )
+
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_DELIVERED)),
+            pickings=picking,
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_DELIVERED)
+
+    def test_problem_with_one_pack_is_the_transfer_status(self):
+        picking, packs = self._shipped_in_packs(2)
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_RETURNED)),
+            pickings=picking,
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_RETURNED)
+
+    def test_pack_missing_from_lookup_keeps_its_last_status(self):
+        picking, packs = self._shipped_in_packs(2)
+        packs[1].write({'neoship_status': 'Prvá registrácia', 'neoship_status_group': const.STATUS_GROUP_TRANSIT})
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(parcel(packs[0], STATUS_DELIVERED)),
+            pickings=picking,
+        )
+        self.assertEqual(packs[1].neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)

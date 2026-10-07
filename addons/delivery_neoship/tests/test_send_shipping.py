@@ -23,9 +23,42 @@ def created(package_id=501, tracking_number='TRK1', reference='REF', **values):
     )
 
 
-def found(package_id=777, tracking_number='TRK-OLD', **values):
-    shipment = {
+def created_parcels(picking, *parcels):
+    reference = picking._neoship_reference()
+    return make_response(
+        json_data=[
+            {
+                'id': package_id,
+                'reference_number': reference if sequence == 1 else f'{reference}-{sequence}',
+                'tracking_number': tracking_number,
+            }
+            for sequence, (package_id, tracking_number) in enumerate(parcels, start=1)
+        ]
+    )
+
+
+def detail_with_copies(picking, package_id=501, *copies):
+    reference = picking._neoship_reference()
+    return make_response(
+        json_data={
+            'id': package_id,
+            'reference_number': reference,
+            'packages': [
+                {'id': copy_id, 'reference_number': f'{reference}{index}', 'tracking_number': tracking_number}
+                for index, (copy_id, tracking_number) in enumerate(copies, start=1)
+            ],
+        }
+    )
+
+
+def found(picking, **values):
+    return make_response(json_data=[existing_shipment(picking._neoship_reference(), **values)])
+
+
+def existing_shipment(reference, package_id=777, tracking_number='TRK-OLD', **values):
+    return {
         'id': package_id,
+        'reference_number': reference,
         'tracking_number': tracking_number,
         'receiver_name': 'Jan Testovaci',
         'receiver_street': 'Hlavna 1',
@@ -37,7 +70,6 @@ def found(package_id=777, tracking_number='TRK-OLD', **values):
         'cod_currency_code': None,
         **values,
     }
-    return make_response(json_data=[shipment])
 
 
 def label():
@@ -114,9 +146,44 @@ class TestSendShipping(NeoshipCommon):
             picking.send_to_shipper()
         return calls
 
-    def _sent_package(self, calls):
+    def _sent_packages(self, calls):
         create_call = next(call for call in calls if '/bulk-create-and-print/' in call['url'])
-        return create_call['json']['packages'][0]
+        return create_call['json']['packages']
+
+    def _sent_package(self, calls):
+        return self._sent_packages(calls)[0]
+
+    def _use_packeta(self):
+        self.carrier.write(
+            {
+                'neoship_shipper_id': 3,
+                'neoship_shipper_code': 'Packeta',
+                'neoship_shipper_name': 'Packeta',
+                'neoship_carrier_type': 131,
+                'neoship_carrier_type_name': 'SK Packeta Home HD',
+                'neoship_carrier_type_country_id': self.country_sk.id,
+            }
+        )
+
+    def _packed_picking(self, *weights, loose=0):
+        picking = self._picking(quantity=len(weights) + loose)
+        picking.action_confirm()
+        move = picking.move_ids
+        move.move_line_ids.unlink()
+        line_values = {
+            'move_id': move.id,
+            'picking_id': picking.id,
+            'product_id': self.product.id,
+            'quantity': 1,
+            'location_id': move.location_id.id,
+            'location_dest_id': move.location_dest_id.id,
+        }
+        for index, weight in enumerate(weights, start=1):
+            pack = self.env['stock.package'].create({'name': f'PACK-{index}', 'shipping_weight': weight})
+            self.env['stock.move.line'].create({**line_values, 'result_package_id': pack.id})
+        for _index in range(loose):
+            self.env['stock.move.line'].create(line_values)
+        return picking
 
     def test_send_creates_shipment_with_label(self):
         picking = self._picking()
@@ -171,7 +238,7 @@ class TestSendShipping(NeoshipCommon):
 
     def test_existing_shipment_is_found_by_reference(self):
         picking = self._picking()
-        calls = self._send(picking, found(), label())
+        calls = self._send(picking, found(picking), label())
         self.assertFalse([call for call in calls if '/bulk-create-and-print/' in call['url']])
         self.assertEqual(picking.neoship_package_id, 777)
         self.assertEqual(picking.carrier_tracking_ref, 'TRK-OLD')
@@ -179,7 +246,9 @@ class TestSendShipping(NeoshipCommon):
     def test_existing_shipment_with_same_cash_on_delivery_is_linked(self):
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
         picking = self._picking()
-        existing = found(cod_price=f'{self.order.amount_total:.4f}', cod_currency_code=self.order.currency_id.name)
+        existing = found(
+            picking, cod_price=f'{self.order.amount_total:.4f}', cod_currency_code=self.order.currency_id.name
+        )
         calls = self._send(picking, existing, label())
         self.assertFalse([call for call in calls if '/package/cancel/' in call['url']])
         self.assertEqual(picking.neoship_package_id, 777)
@@ -188,7 +257,7 @@ class TestSendShipping(NeoshipCommon):
     def test_existing_shipment_with_different_data_is_replaced(self):
         picking = self._picking()
         picking.write({'neoship_cod_manual': True, 'neoship_cod_manual_amount': 12.5})
-        existing = found(receiver_street='Stara 9', cod_price='30.0000', cod_currency_code='EUR')
+        existing = found(picking, receiver_street='Stara 9', cod_price='30.0000', cod_currency_code='EUR')
         calls = self._send(picking, existing, make_response(json_data={}), created(), label())
 
         self.assertEqual(calls[2]['url'], TEST_URL + '/package/cancel/777')
@@ -203,7 +272,7 @@ class TestSendShipping(NeoshipCommon):
     def test_existing_shipment_with_different_data_already_handed_over(self):
         picking = self._picking()
         with (
-            mock_neoship(make_response(json_data=LOGIN_OK), found(receiver_zip='99999'), NOT_FOUND) as calls,
+            mock_neoship(make_response(json_data=LOGIN_OK), found(picking, receiver_zip='99999'), NOT_FOUND) as calls,
             self.assertRaisesRegex(UserError, 'TRK-OLD .*can no longer be cancelled'),
         ):
             picking.send_to_shipper()
@@ -604,3 +673,192 @@ class TestSendShipping(NeoshipCommon):
         with mute_logger('odoo.sql_db'), self.assertRaises(UniqueViolation), self.cr.savepoint():
             second.neoship_reference = 'SAME'
             second.flush_recordset()
+
+    def test_packeta_sends_each_pack_as_own_shipment(self):
+        self._use_packeta()
+        self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
+        picking = self._packed_picking(1.0, 2.5)
+        reference = picking._neoship_reference()
+        calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+
+        self.assertEqual(calls[1]['json']['reference_numbers'], [reference, f'{reference}-2'])
+        self.assertEqual(len([call for call in calls if '/bulk-create-and-print/' in call['url']]), 1)
+        packages = self._sent_packages(calls)
+        self.assertEqual([package['reference_number'] for package in packages], [reference, f'{reference}-2'])
+        self.assertEqual([package['weight'] for package in packages], [1.0, 2.5])
+        self.assertEqual([package['carrier_type'] for package in packages], [131, 131])
+        self.assertEqual(packages[0]['cod_price'], self.order.amount_total)
+        self.assertNotIn('cod_price', packages[1])
+        self.assertNotIn('count_of_packages', packages[0])
+        label_calls = [call['url'] for call in calls if call['url'].endswith('/label')]
+        self.assertEqual(label_calls, [TEST_URL + '/package/501/label'])
+
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+        self.assertEqual(picking.neoship_package_id, 501)
+        self.assertEqual(picking.neoship_reference, reference)
+        self.assertTrue(picking.neoship_shipment_per_pack)
+        self.assertEqual(picking.neoship_cod_amount, self.order.amount_total)
+        packs = picking._neoship_packs()
+        self.assertEqual(packs.mapped('name'), ['PACK-1', 'PACK-2'])
+        self.assertEqual(packs.mapped('neoship_package_id'), [501, 502])
+        self.assertEqual(packs.mapped('neoship_reference'), [reference, f'{reference}-2'])
+        self.assertEqual(packs.mapped('neoship_tracking_ref'), ['TRK1', 'TRK2'])
+        self.assertEqual(picking._neoship_label().name, 'LabelShipping-neoship-TRK1-TRK2.pdf')
+
+    def test_pickup_point_with_several_packs_sends_shipment_per_pack(self):
+        self.order.neoship_parcelshop_id = 'PS-1234'
+        picking = self._packed_picking(1.0, 2.5)
+        calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        packages = self._sent_packages(calls)
+        self.assertEqual([package['parcelshop'] for package in packages], ['PS-1234', 'PS-1234'])
+        self.assertTrue(picking.neoship_shipment_per_pack)
+
+    def test_products_outside_packs_are_refused_before_calling_neoship(self):
+        picking = self._packed_picking(1.0, loose=1)
+        with mock_neoship() as calls, self.assertRaisesRegex(UserError, 'in packs, or none of them'):
+            picking.send_to_shipper()
+        self.assertFalse(calls)
+
+    def test_packeta_with_one_pack_sends_one_shipment(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0)
+        reference = picking._neoship_reference()
+        package = self._sent_package(self._send(picking, NOT_FOUND, created(reference=reference), label()))
+        self.assertEqual(package['reference_number'], reference)
+        self.assertEqual(package['count_of_packages'], 1)
+        self.assertFalse(picking.neoship_shipment_per_pack)
+        self.assertEqual(picking._neoship_packs().neoship_tracking_ref, 'TRK1')
+
+    def test_packeta_weight_limit_applies_to_each_parcel(self):
+        self._use_packeta()
+        picking = self._packed_picking(10.0, 10.0)
+        self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+
+        with mock_neoship() as calls, self.assertRaisesRegex(UserError, 'for each parcel, parcel PACK-1'):
+            self._packed_picking(16.0, 1.0).send_to_shipper()
+        self.assertFalse(calls)
+
+    def test_other_carriers_send_pack_count_and_store_copies_on_packs(self):
+        picking = self._packed_picking(1.0, 2.5)
+        reference = picking._neoship_reference()
+        parcel_weight = round(picking._neoship_weight_kg() / 2, 3)
+        calls = self._send(
+            picking,
+            NOT_FOUND,
+            created(reference=reference),
+            detail_with_copies(picking, 501, (502, 'TRK2')),
+            label(),
+        )
+        packages = self._sent_packages(calls)
+        self.assertEqual(len(packages), 1)
+        self.assertEqual(packages[0]['count_of_packages'], 2)
+        self.assertEqual(packages[0]['weight'], parcel_weight)
+        self.assertEqual(calls[3]['url'], TEST_URL + '/package/501')
+
+        self.assertFalse(picking.neoship_shipment_per_pack)
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+        packs = picking._neoship_packs()
+        self.assertEqual(packs.mapped('neoship_package_id'), [501, 502])
+        self.assertEqual(packs.mapped('neoship_reference'), [reference, f'{reference}1'])
+        self.assertEqual(packs.mapped('neoship_tracking_ref'), ['TRK1', 'TRK2'])
+
+    def test_existing_shipment_with_different_pack_count_is_replaced(self):
+        picking = self._packed_picking(1.0, 2.5)
+        calls = self._send(
+            picking,
+            found(picking, packages=[]),
+            make_response(json_data={}),
+            created(reference=picking._neoship_reference()),
+            detail_with_copies(picking, 501, (502, 'TRK2')),
+            label(),
+        )
+        self.assertEqual(calls[2]['url'], TEST_URL + '/package/cancel/777')
+        message = picking.message_ids.filtered(lambda m: 'replaced by shipment' in (m.body or ''))
+        self.assertIn('count_of_packages: 1 → 2', message.body)
+
+    def test_packeta_existing_parcels_are_linked(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0, 2.5)
+        reference = picking._neoship_reference()
+        existing = make_response(
+            json_data=[
+                existing_shipment(reference, 777, 'TRK-OLD'),
+                existing_shipment(f'{reference}-2', 778, 'TRK-OLD2'),
+            ]
+        )
+        calls = self._send(picking, existing, label())
+        self.assertFalse([call for call in calls if '/bulk-create-and-print/' in call['url']])
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK-OLD,TRK-OLD2')
+        self.assertEqual(picking._neoship_packs().mapped('neoship_package_id'), [777, 778])
+
+    def test_packeta_partly_created_parcels_are_created_again_together(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0, 2.5)
+        calls = self._send(
+            picking,
+            found(picking),
+            make_response(json_data={}),
+            created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')),
+            label(),
+        )
+        self.assertEqual(calls[2]['url'], TEST_URL + '/package/cancel/777')
+        self.assertEqual(len(self._sent_packages(calls)), 2)
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+        self.assertTrue(picking.message_ids.filtered(lambda m: 'created again together' in (m.body or '')))
+
+    def test_packeta_refused_parcel_shows_its_reference(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0, 2.5)
+        refused = make_response(
+            json_data=[
+                {'id': 501, 'reference_number': 'REF', 'tracking_number': 'TRK1', 'errors': []},
+                {'id': 502, 'reference_number': 'REF-2', 'tracking_number': None, 'errors': ['Invalid weight']},
+            ]
+        )
+        with self.assertRaisesRegex(UserError, f'carrier refused .*{picking._neoship_reference()}-2: Invalid weight'):
+            self._send(picking, NOT_FOUND, refused)
+        self.assertFalse(picking.neoship_package_id)
+
+    def test_packeta_cancel_cancels_every_parcel(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0, 2.5)
+        self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        picking.state = 'done'
+        ok = make_response(json_data={})
+        with mock_neoship(make_response(json_data=LOGIN_OK), ok, ok) as calls:
+            picking.cancel_shipment()
+        self.assertEqual(
+            [call['url'] for call in calls[1:]],
+            [TEST_URL + '/package/cancel/501', TEST_URL + '/package/cancel/502'],
+        )
+        self.assertFalse(picking.neoship_package_id)
+        self.assertFalse(picking.neoship_shipment_per_pack)
+        self.assertFalse(picking.carrier_tracking_ref)
+        self.assertEqual(picking._neoship_packs().mapped('neoship_package_id'), [0, 0])
+
+    def test_other_carriers_cancel_only_the_main_package(self):
+        picking = self._packed_picking(1.0, 2.5)
+        self._send(
+            picking,
+            NOT_FOUND,
+            created(reference=picking._neoship_reference()),
+            detail_with_copies(picking, 501, (502, 'TRK2')),
+            label(),
+        )
+        picking.state = 'done'
+        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={})) as calls:
+            picking.cancel_shipment()
+        self.assertEqual([call['url'] for call in calls[1:]], [TEST_URL + '/package/cancel/501'])
+        self.assertFalse(picking._neoship_packs().filtered('neoship_tracking_ref'))
+
+    def test_packeta_cancel_refused_for_one_parcel_keeps_shipment(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0, 2.5)
+        self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={}), NOT_FOUND):
+            action = picking.cancel_shipment()
+        self.assertIn('can no longer cancel shipment TRK2.', action['params']['message'])
+        self.assertTrue(picking.neoship_cancel_refused)
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+        self.assertEqual(picking._neoship_packs().mapped('neoship_package_id'), [501, 502])

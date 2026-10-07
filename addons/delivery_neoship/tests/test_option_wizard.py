@@ -6,10 +6,12 @@ from odoo.addons.delivery_neoship import const
 from .common import NeoshipCommon, make_response, mock_neoship
 
 LOGIN_OK = {'token': 'token-1'}
+ADDRESS = {'type': 'address', 'countries': ['CZ', 'SK']}
+PARCELSHOP = {'type': 'parcelshop', 'countries': ['SK']}
 SHIPPERS = [
-    {'id': 2, 'name': 'SPS', 'shortcut': 'SPS', 'supports_parcelshops': True},
-    {'id': 3, 'name': 'Packeta', 'shortcut': 'Packeta', 'supports_parcelshops': True},
-    {'id': 4, 'name': '123kuriér', 'shortcut': '123', 'supports_parcelshops': False},
+    {'id': 2, 'name': 'SPS', 'shortcut': 'SPS', 'delivery_types': [ADDRESS, PARCELSHOP]},
+    {'id': 3, 'name': 'Packeta', 'shortcut': 'Packeta', 'delivery_types': [ADDRESS, PARCELSHOP]},
+    {'id': 4, 'name': '123kuriér', 'shortcut': '123', 'delivery_types': [ADDRESS]},
 ]
 PACKETA_CARRIERS = [
     {
@@ -65,9 +67,21 @@ class TestOptionWizard(NeoshipCommon):
 
     def test_shipper_options_come_from_api(self):
         wizard, calls = self._open('action_neoship_choose_shipper', SHIPPERS)
-        self.assertTrue(calls[-1]['url'].endswith('/shipper/'))
+        self.assertTrue(calls[-1]['url'].endswith('/shipper/active'))
         self.assertEqual(wizard.kind, const.OPTION_KIND_SHIPPER)
         self.assertEqual(sorted(wizard.line_ids.mapped('value')), [2, 3, 4])
+
+    def test_pickup_points_come_from_delivery_types(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        pickup_points = {line.code: line.supports_parcelshops for line in wizard.line_ids}
+        self.assertEqual(pickup_points, {'SPS': True, 'Packeta': True, '123': False})
+
+    def test_account_without_connected_carriers_is_reported(self):
+        with (
+            mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data=[])),
+            self.assertRaisesRegex(UserError, 'No carriers are connected'),
+        ):
+            self.carrier.action_neoship_choose_shipper()
 
     def test_select_shipper_stores_it_on_delivery_method(self):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)

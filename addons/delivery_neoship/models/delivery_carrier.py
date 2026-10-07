@@ -107,6 +107,9 @@ class DeliveryCarrier(models.Model):
                 )
 
     @api.model
+    def _neoship_ships_pack_per_shipment(self):
+        return (self.neoship_shipper_code or '').lower() in const.SHIPPER_CODES_SHIPMENT_PER_PACK
+
     def _neoship_requires_carrier_type(self, shipper_code):
         return (shipper_code or '').lower() in const.SHIPPER_CODES_WITH_CARRIER_TYPE
 
@@ -192,13 +195,18 @@ class DeliveryCarrier(models.Model):
         }
 
     def action_neoship_choose_shipper(self):
-        shippers = self._neoship_fetch(lambda client: client.get_shippers())
+        shippers = self._neoship_fetch(lambda client: client.get_active_shippers())
+        if not shippers:
+            raise UserError(self.env._('No carriers are connected to this Neoship account.'))
         lines = [
             {
                 'value': shipper['id'],
                 'name': shipper['name'],
                 'code': shipper['shortcut'],
-                'supports_parcelshops': shipper.get('supports_parcelshops', False),
+                'supports_parcelshops': any(
+                    delivery_type['type'] == const.SHIPPER_DELIVERY_TYPE_PARCELSHOP
+                    for delivery_type in shipper.get('delivery_types', [])
+                ),
             }
             for shipper in shippers
         ]
@@ -353,70 +361,92 @@ class DeliveryCarrier(models.Model):
         if not self.neoship_shipper_id:
             raise UserError(self.env._('Choose the Neoship carrier on delivery method %s.', self.name))
         picking._neoship_lock()
-        package = picking._neoship_prepare_package()
-        picking._neoship_check_reference_free(package['reference_number'])
+        packages = picking._neoship_prepare_packages()
+        main = packages[0]
+        picking._neoship_check_reference_free(main['reference_number'])
         with self._neoship_client() as client:
-            shipment = self._neoship_find_or_create(client, picking, package)
+            shipments = self._neoship_find_or_create(client, picking, packages)
+            parcels = self._neoship_parcels(client, shipments, main.get('count_of_packages', 1))
+            tracking_number = ','.join(parcel['tracking_number'] for parcel in parcels if parcel.get('tracking_number'))
             picking.write(
                 {
-                    'neoship_package_id': shipment['id'],
+                    'neoship_package_id': shipments[0]['id'],
                     'neoship_prod_environment': self.prod_environment,
-                    'neoship_reference': package['reference_number'],
-                    'neoship_cod_amount': package.get('cod_price', 0.0),
+                    'neoship_reference': main['reference_number'],
+                    'neoship_shipment_per_pack': len(shipments) > 1,
+                    'neoship_cod_amount': main.get('cod_price', 0.0),
                     'neoship_error': False,
                     **picking._neoship_tracking_reset_values(),
                 }
             )
+            picking._neoship_store_parcels(parcels)
             try:
-                picking._neoship_attach_label(client, shipment['tracking_number'])
+                picking._neoship_attach_label(client, tracking_number)
             except NeoshipError as e:
                 message = self.env._('The Neoship label could not be downloaded: %s', e)
                 picking.neoship_error = message
                 picking.message_post(body=message)
-        return {'exact_price': self.fixed_price, 'tracking_number': shipment['tracking_number']}
+        return {'exact_price': self.fixed_price, 'tracking_number': tracking_number}
 
-    def _neoship_find_or_create(self, client, picking, package):
-        reference = package['reference_number']
+    def _neoship_find_or_create(self, client, picking, packages):
+        references = [package['reference_number'] for package in packages]
         try:
-            existing = client.find_packages([reference])
-            printed = [shipment for shipment in existing if shipment.get('tracking_number')]
-            if len(printed) > 1:
+            existing = client.find_packages(references)
+            printed = {}
+            for shipment in existing:
+                if shipment.get('tracking_number'):
+                    printed.setdefault(shipment.get('reference_number'), []).append(shipment)
+            duplicates = {reference: group for reference, group in printed.items() if len(group) > 1}
+            if duplicates:
                 raise UserError(
                     self.env._(
                         'Several Neoship shipments use reference %(reference)s (IDs %(ids)s). '
                         'Check them in Neoship before sending transfer %(transfer)s again.',
-                        reference=reference,
-                        ids=', '.join(str(shipment['id']) for shipment in printed),
+                        reference=', '.join(str(reference) for reference in duplicates),
+                        ids=', '.join(str(shipment['id']) for group in duplicates.values() for shipment in group),
                         transfer=picking.name,
                     )
                 )
-            changes = ''
-            if printed:
-                changes = self._neoship_shipment_changes(printed[0], package)
-                if not changes:
-                    picking.message_post(
-                        body=self.env._(
-                            'Existing Neoship shipment %s was found by its reference and linked to this transfer.',
-                            printed[0]['tracking_number'],
-                        )
+            printed = {reference: group[0] for reference, group in printed.items()}
+            changes = {
+                reference: self._neoship_shipment_changes(printed[reference], package)
+                for reference, package in zip(references, packages, strict=True)
+                if reference in printed
+            }
+            old_tracking = ', '.join(shipment['tracking_number'] for shipment in printed.values())
+            if len(printed) == len(packages) and not any(changes.values()):
+                picking.message_post(
+                    body=self.env._(
+                        'Existing Neoship shipment %s was found by its reference and linked to this transfer.',
+                        old_tracking,
                     )
-                    return printed[0]
-                self._neoship_cancel_changed_shipment(client, picking, printed[0], changes)
+                )
+                return [printed[reference] for reference in references]
+            for reference, shipment in printed.items():
+                self._neoship_cancel_changed_shipment(client, picking, shipment, changes.get(reference))
             for unprinted in existing:
                 if not unprinted.get('tracking_number'):
                     client.delete_package(unprinted['id'])
         except NeoshipError as e:
             raise self._neoship_user_error(e) from e
 
-        shipment = self._neoship_create(client, package)
-        if not shipment.get('tracking_number'):
-            carrier_errors = '; '.join(str(error) for error in shipment.get('errors') or [])
+        shipments = self._neoship_create(client, packages)
+        failed = [
+            (package, shipment)
+            for package, shipment in zip(packages, shipments, strict=True)
+            if not shipment.get('tracking_number')
+        ]
+        if failed:
+            failed_references = ', '.join(package['reference_number'] for package, _shipment in failed)
+            carrier_errors = '; '.join(
+                str(error) for _package, shipment in failed for error in shipment.get('errors') or []
+            )
             if carrier_errors:
                 raise UserError(
                     self.env._(
                         'The carrier refused Neoship shipment %(reference)s: %(errors)s. '
                         'Fix the problem and validate again.',
-                        reference=reference,
+                        reference=failed_references,
                         errors=carrier_errors,
                     )
                 )
@@ -424,32 +454,50 @@ class DeliveryCarrier(models.Model):
                 self.env._(
                     'Neoship created shipment %s but the carrier returned no tracking number. '
                     'Fix the problem reported by the carrier and validate again.',
-                    reference,
+                    failed_references,
                 )
             )
         if printed:
-            picking.message_post(
-                body=self.env._(
+            new_tracking = ', '.join(shipment['tracking_number'] for shipment in shipments)
+            all_changes = '; '.join(change for change in changes.values() if change)
+            if all_changes:
+                message = self.env._(
                     'Neoship shipment %(old)s had different data (%(changes)s), '
                     'so it was cancelled and replaced by shipment %(new)s.',
-                    old=printed[0]['tracking_number'],
-                    changes=changes,
-                    new=shipment['tracking_number'],
+                    old=old_tracking,
+                    changes=all_changes,
+                    new=new_tracking,
                 )
-            )
-        return shipment
+            else:
+                message = self.env._(
+                    'Neoship shipment %(old)s was cancelled and created again together with the missing parcels '
+                    'as %(new)s.',
+                    old=old_tracking,
+                    new=new_tracking,
+                )
+            picking.message_post(body=message)
+        return shipments
 
-    def _neoship_create(self, client, package):
+    def _neoship_parcels(self, client, shipments, count):
+        if len(shipments) > 1 or count < 2:
+            return shipments
+        try:
+            copies = client.get_package(shipments[0]['id']).get('packages') or []
+        except NeoshipError as e:
+            raise self._neoship_user_error(e) from e
+        return [shipments[0], *copies]
+
+    def _neoship_create(self, client, packages):
         try:
             print_type = const.LABEL_PRINT_TYPES.get((self.neoship_shipper_code or '').lower())
-            return client.create_packages(self.neoship_shipper_id, [package], print_type)[0]
+            return client.create_packages(self.neoship_shipper_id, packages, print_type)
         except NeoshipTimeout as e:
             raise UserError(
                 self.env._(
                     'Neoship did not confirm shipment %s in time; it may still be created. '
                     'Wait a minute and validate again: an existing shipment is found by its reference, '
                     'so no duplicate is created.',
-                    package['reference_number'],
+                    packages[0]['reference_number'],
                 )
             ) from e
         except NeoshipNotFoundError as e:
@@ -470,6 +518,10 @@ class DeliveryCarrier(models.Model):
             for field in const.SHIPMENT_MATCH_FIELDS
             if str(shipment.get(field) or '').strip() != str(package.get(field) or '').strip()
         ]
+        if 'count_of_packages' in package:
+            old_count = len(shipment.get('packages') or []) + 1
+            if old_count != package['count_of_packages']:
+                changes.append(f'count_of_packages: {old_count} → {package["count_of_packages"]}')
         old_cod = float(shipment.get('cod_price') or 0.0)
         new_cod = package.get('cod_price', 0.0)
         if float_compare(old_cod, new_cod, precision_digits=const.COD_PRECISION_DIGITS):
@@ -480,6 +532,16 @@ class DeliveryCarrier(models.Model):
         try:
             client.cancel_package(shipment['id'])
         except NeoshipNotFoundError as e:
+            if not changes:
+                raise UserError(
+                    self.env._(
+                        'Neoship shipment %(tracking)s for transfer %(transfer)s has to be created again together '
+                        'with its other parcels, but it can no longer be cancelled because the carrier already '
+                        'has it. Check it in Neoship.',
+                        tracking=shipment['tracking_number'],
+                        transfer=picking.name,
+                    )
+                ) from e
             raise UserError(
                 self.env._(
                     'Neoship shipment %(tracking)s for transfer %(transfer)s has different data (%(changes)s) '
@@ -502,22 +564,30 @@ class DeliveryCarrier(models.Model):
 
     def neoship_cancel_shipment(self, pickings):
         for picking in pickings.filtered('neoship_package_id'):
+            refused = []
             try:
                 with self._neoship_client(picking.neoship_prod_environment) as client:
-                    client.cancel_package(picking.neoship_package_id)
-            except NeoshipNotFoundError:
+                    for package_id, tracking_number in picking._neoship_shipments_to_cancel():
+                        try:
+                            client.cancel_package(package_id)
+                        except NeoshipNotFoundError:
+                            refused.append(tracking_number)
+            except NeoshipError as e:
+                raise self._neoship_user_error(e) from e
+            if refused:
                 message = self.env._(
                     'Neoship can no longer cancel shipment %s. It was probably already handed over to the carrier.',
-                    picking.carrier_tracking_ref,
+                    ', '.join(refused),
                 )
                 picking.write({'neoship_cancel_refused': True, 'neoship_error': message})
                 picking.message_post(body=message)
                 continue
-            except NeoshipError as e:
-                raise self._neoship_user_error(e) from e
+            for pack in picking._neoship_sent_packs():
+                pack.write(pack._neoship_clear_values())
             picking.write(
                 {
                     'neoship_package_id': False,
+                    'neoship_shipment_per_pack': False,
                     'neoship_cod_amount': 0.0,
                     'neoship_error': False,
                     **picking._neoship_tracking_reset_values(),
