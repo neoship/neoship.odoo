@@ -3,7 +3,7 @@ from urllib.parse import quote
 
 from odoo import Command, api, fields, models
 from odoo.exceptions import UserError, ValidationError
-from odoo.tools import float_compare
+from odoo.tools import float_round
 from odoo.tools.safe_eval import safe_eval
 
 from .. import const
@@ -19,6 +19,7 @@ from .neoship_api import (
     NeoshipNotFoundError,
     NeoshipTimeout,
 )
+from .stock_picking import neoship_phone, neoship_same_phone
 
 
 class DeliveryCarrier(models.Model):
@@ -459,7 +460,7 @@ class DeliveryCarrier(models.Model):
             )
         if printed:
             new_tracking = ', '.join(shipment['tracking_number'] for shipment in shipments)
-            all_changes = '; '.join(change for change in changes.values() if change)
+            all_changes = '; '.join(self._neoship_format_changes(change) for change in changes.values() if change)
             if all_changes:
                 message = self.env._(
                     'Neoship shipment %(old)s had different data (%(changes)s), '
@@ -513,22 +514,39 @@ class DeliveryCarrier(models.Model):
             raise self._neoship_user_error(e) from e
 
     def _neoship_shipment_changes(self, shipment, package):
-        changes = [
-            f'{field}: {shipment.get(field) or ""} → {package.get(field) or ""}'
-            for field in const.SHIPMENT_MATCH_FIELDS
-            if str(shipment.get(field) or '').strip() != str(package.get(field) or '').strip()
-        ]
-        if 'count_of_packages' in package:
-            old_count = len(shipment.get('packages') or []) + 1
-            if old_count != package['count_of_packages']:
-                changes.append(
-                    self.env._('count_of_packages: %(old)s → %(new)s', old=old_count, new=package['count_of_packages'])
-                )
-        old_cod = float(shipment.get('cod_price') or 0.0)
-        new_cod = package.get('cod_price', 0.0)
-        if float_compare(old_cod, new_cod, precision_digits=const.COD_PRECISION_DIGITS):
-            changes.append(f'cod_price: {old_cod} → {new_cod}')
-        return '; '.join(changes)
+        old_shipper = shipment.get('shipper') or {}
+        old = self._neoship_match_values(shipment, old_shipper.get('id'), len(shipment.get('packages') or []) + 1)
+        new = self._neoship_match_values(package, self.neoship_shipper_id, package.get('count_of_packages'))
+        changes = {
+            key: (old[key], new[key])
+            for key in old
+            if key in new and not self._neoship_same_match_value(key, old[key], new[key])
+        }
+        if 'shipper' in changes:
+            changes['shipper'] = (old_shipper.get('name') or '', self.neoship_shipper_name or '')
+        return changes
+
+    def _neoship_match_values(self, data, shipper_id, count):
+        values = {field: str(data.get(field) or '').strip() for field in const.SHIPMENT_MATCH_FIELDS}
+        values.update({field: neoship_phone(data.get(field)) for field in const.SHIPMENT_MATCH_PHONE_FIELDS})
+        values['shipper'] = shipper_id
+        values['cod_price'] = float_round(
+            float(data.get('cod_price') or 0.0), precision_digits=const.COD_PRECISION_DIGITS
+        )
+        # Neoship keeps no weight for carriers that do not use it.
+        if data.get('weight') is not None:
+            values['weight'] = float_round(float(data['weight']), precision_digits=const.WEIGHT_PRECISION_DIGITS)
+        if count:
+            values['count_of_packages'] = count
+        return values
+
+    def _neoship_same_match_value(self, key, old, new):
+        if key in const.SHIPMENT_MATCH_PHONE_FIELDS:
+            return neoship_same_phone(old, new)
+        return old == new
+
+    def _neoship_format_changes(self, changes):
+        return '; '.join(f'{key}: {old} → {new}' for key, (old, new) in changes.items())
 
     def _neoship_cancel_changed_shipment(self, client, picking, shipment, changes):
         try:
@@ -550,7 +568,7 @@ class DeliveryCarrier(models.Model):
                     'and can no longer be cancelled because the carrier already has it. Check it in Neoship.',
                     tracking=shipment['tracking_number'],
                     transfer=picking.name,
-                    changes=changes,
+                    changes=self._neoship_format_changes(changes),
                 )
             ) from e
 

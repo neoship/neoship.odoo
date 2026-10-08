@@ -33,10 +33,14 @@ SHIPMENT_MATCH_FIELDS = (
     'receiver_city',
     'receiver_zip',
     'receiver_state_code',
+    'receiver_company',
+    'receiver_email',
     'parcelshop',
     'cod_currency_code',
 )
+SHIPMENT_MATCH_PHONE_FIELDS = ('receiver_phone',)
 COD_PRECISION_DIGITS = 2
+WEIGHT_PRECISION_DIGITS = 3
 COD_FIELDS = ('cod_price', 'cod_currency_code', 'cod_reference')
 
 STATUS_GROUP_NEW = 'new'

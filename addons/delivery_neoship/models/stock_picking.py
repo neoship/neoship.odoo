@@ -27,6 +27,15 @@ def neoship_code(value):
     return re.sub(const.REFERENCE_INVALID_CHARS, '-', value or '').strip('-')[: const.REFERENCE_MAX_LENGTH]
 
 
+def neoship_phone(value):
+    return re.sub(r'\s+', '', value or '')
+
+
+def neoship_same_phone(old, new):
+    # Neoship may store the number with a country prefix it added, e.g. +48 for Polish Packeta carriers.
+    return old == new or bool(old and new and (old.endswith(new) or new.endswith(old)))
+
+
 def neoship_status_group(status):
     group = status.get('group')
     return group if group in const.STATUS_GROUPS else False
@@ -194,7 +203,9 @@ class StockPicking(models.Model):
         count = len(packs) or 1
         package['count_of_packages'] = count
         # Neoship copies the main package's weight to every extra parcel.
-        self._neoship_set_weight(package, float_round(self._neoship_weight_kg() / count, precision_digits=3))
+        self._neoship_set_weight(
+            package, float_round(self._neoship_weight_kg() / count, precision_digits=const.WEIGHT_PRECISION_DIGITS)
+        )
         return [package]
 
     def _neoship_packs(self):
@@ -262,7 +273,7 @@ class StockPicking(models.Model):
             f'{prefix}_zip': partner.zip,
             f'{prefix}_state_code': partner.country_id.code,
             f'{prefix}_email': next(iter(contacts.filtered('email').mapped('email')), False),
-            f'{prefix}_phone': re.sub(r'\s+', '', next(iter(contacts.filtered('phone').mapped('phone')), '')),
+            f'{prefix}_phone': neoship_phone(next(iter(contacts.filtered('phone').mapped('phone')), '')),
         }
 
     def _neoship_check_addresses(self, package, sender, receiver):
@@ -320,7 +331,7 @@ class StockPicking(models.Model):
         weight = weight or self.carrier_id.neoship_default_weight
         weight_uom = self.env['product.template']._get_weight_uom_id_from_ir_config_parameter()
         weight_kg = weight_uom._compute_quantity(weight, self.env.ref(const.ODOO_UOM_KG), round=False)
-        return float_round(weight_kg, precision_digits=3)
+        return float_round(weight_kg, precision_digits=const.WEIGHT_PRECISION_DIGITS)
 
     def _neoship_cod_values(self):
         order = self.sale_id

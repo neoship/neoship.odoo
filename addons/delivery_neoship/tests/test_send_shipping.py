@@ -15,6 +15,7 @@ from .common import NeoshipCommon, make_response, mock_neoship
 LOGIN_OK = {'token': 'token-1'}
 PDF = b'%PDF-1.5 label'
 NOT_FOUND = make_response(404, {})
+PACKETA_SHIPPER = {'id': 3, 'name': 'Packeta'}
 
 
 def created(package_id=501, tracking_number='TRK1', reference='REF', **values):
@@ -52,6 +53,8 @@ def detail_with_copies(picking, package_id=501, *copies):
 
 
 def found(picking, **values):
+    carrier = picking.carrier_id
+    values.setdefault('shipper', {'id': carrier.neoship_shipper_id, 'name': carrier.neoship_shipper_name})
     return make_response(json_data=[existing_shipment(picking._neoship_reference(), **values)])
 
 
@@ -60,11 +63,16 @@ def existing_shipment(reference, package_id=777, tracking_number='TRK-OLD', **va
         'id': package_id,
         'reference_number': reference,
         'tracking_number': tracking_number,
+        'shipper': {'id': 2, 'name': 'SPS'},
         'receiver_name': 'Jan Testovaci',
         'receiver_street': 'Hlavna 1',
         'receiver_city': 'Kosice',
         'receiver_zip': '04001',
         'receiver_state_code': 'SK',
+        'receiver_company': '',
+        'receiver_email': 'jan@example.com',
+        'receiver_phone': '+421900123456',
+        'weight': None,
         'parcelshop': None,
         'cod_price': None,
         'cod_currency_code': None,
@@ -278,6 +286,42 @@ class TestSendShipping(NeoshipCommon):
             picking.send_to_shipper()
         self.assertFalse([call for call in calls if '/bulk-create-and-print/' in call['url']])
         self.assertFalse(picking.neoship_package_id)
+
+    def _assert_replaced(self, picking, existing, *expected_changes):
+        calls = self._send(picking, existing, make_response(json_data={}), created(), label())
+        self.assertEqual(calls[2]['url'], TEST_URL + '/package/cancel/777')
+        self.assertEqual(picking.neoship_package_id, 501)
+        message = picking.message_ids.filtered(lambda m: 'replaced by shipment TRK1' in (m.body or ''))
+        for change in expected_changes:
+            self.assertIn(change, message.body)
+
+    def test_existing_shipment_of_another_carrier_is_replaced(self):
+        picking = self._picking()
+        self._assert_replaced(picking, found(picking, shipper={'id': 5, 'name': 'GLS'}), 'shipper: GLS → SPS')
+
+    def test_existing_shipment_with_different_contact_is_replaced(self):
+        picking = self._picking()
+        existing = found(picking, receiver_phone='+421900999999', receiver_email='old@example.com')
+        self._assert_replaced(
+            picking, existing, 'receiver_email: old@example.com → jan@example.com', 'receiver_phone: +421900999999'
+        )
+
+    def test_existing_shipment_with_prefixed_phone_is_linked(self):
+        self.customer.phone = '900 123 456'
+        picking = self._picking()
+        calls = self._send(picking, found(picking, receiver_phone='+48900123456'), label())
+        self.assertFalse([call for call in calls if '/package/cancel/' in call['url']])
+        self.assertEqual(picking.neoship_package_id, 777)
+
+    def test_existing_shipment_with_same_weight_is_linked(self):
+        picking = self._picking()
+        calls = self._send(picking, found(picking, weight='0.8000'), label())
+        self.assertFalse([call for call in calls if '/package/cancel/' in call['url']])
+        self.assertEqual(picking.neoship_package_id, 777)
+
+    def test_existing_shipment_with_different_weight_is_replaced(self):
+        picking = self._picking()
+        self._assert_replaced(picking, found(picking, weight='1.5000'), 'weight: 1.5 → 0.8')
 
     def test_unprinted_shipment_from_failed_attempt_is_replaced(self):
         picking = self._picking()
@@ -819,8 +863,8 @@ class TestSendShipping(NeoshipCommon):
                     self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
                     existing = make_response(
                         json_data=[
-                            existing_shipment(reference, 501, 'TRK1'),
-                            existing_shipment(f'{reference}-2', 502, 'TRK2'),
+                            existing_shipment(reference, 501, 'TRK1', shipper=PACKETA_SHIPPER),
+                            existing_shipment(f'{reference}-2', 502, 'TRK2', shipper=PACKETA_SHIPPER),
                         ]
                     )
                     calls = self._send(picking, existing, label())
@@ -856,8 +900,8 @@ class TestSendShipping(NeoshipCommon):
         reference = picking._neoship_reference()
         existing = make_response(
             json_data=[
-                existing_shipment(reference, 777, 'TRK-OLD'),
-                existing_shipment(f'{reference}-2', 778, 'TRK-OLD2'),
+                existing_shipment(reference, 777, 'TRK-OLD', shipper=PACKETA_SHIPPER),
+                existing_shipment(f'{reference}-2', 778, 'TRK-OLD2', shipper=PACKETA_SHIPPER),
             ]
         )
         calls = self._send(picking, existing, label())
