@@ -16,9 +16,7 @@ from odoo.addons.delivery_neoship.models.neoship_api import (
     clear_token_cache,
 )
 
-from .common import make_response, mock_neoship
-
-LOGIN_OK = {'token': 'token-1', 'refresh_token': 'refresh-1'}
+from .common import login_ok, make_response, mock_neoship
 
 
 def jwt(expires_in):
@@ -67,19 +65,23 @@ class TestNeoshipClient(BaseCase):
                 self._client(password).get_package(8)
             self.assertEqual(calls[2]['url'], 'https://neoship.test/api/login_check')
 
-    def test_rejected_cached_token_logs_in_again(self):
+    def test_rejected_cached_token_is_replaced_in_cache(self):
         with mock_neoship(make_response(json_data={'token': jwt(3600)}), make_response(json_data={'id': 7})):
             self.client.get_package(7)
+        new_token = jwt(7200)
         with mock_neoship(
             make_response(401, {'message': 'Invalid JWT Token'}),
-            make_response(json_data={'token': 'token-2'}),
+            make_response(json_data={'token': new_token}),
             make_response(json_data={'id': 8}),
+            make_response(json_data={'id': 9}),
         ) as calls:
             self.assertEqual(self._client().get_package(8).id, 8)
-        self.assertEqual(calls[2]['headers']['Authorization'], 'Bearer token-2')
+            self._client().get_package(9)
+        self.assertEqual(len(calls), 4)
+        self.assertEqual(calls[3]['headers']['Authorization'], f'Bearer {new_token}')
 
     def test_login_posts_credentials_and_stores_token(self):
-        with mock_neoship(make_response(json_data=LOGIN_OK)) as calls:
+        with mock_neoship(login_ok()) as calls:
             self.assertEqual(self.client.login(), 'token-1')
         self.assertEqual((calls[0]['method'], calls[0]['url']), ('POST', 'https://neoship.test/api/login_check'))
         self.assertEqual(calls[0]['json'], {'username': 'user@example.com', 'password': 'secret-password'})
@@ -93,19 +95,7 @@ class TestNeoshipClient(BaseCase):
         ):
             self.client.login()
 
-    def test_session_is_reused_with_bearer_token(self):
-        with mock_neoship(
-            make_response(json_data=LOGIN_OK),
-            make_response(json_data={'id': 7}),
-            make_response(json_data={'id': 8}),
-        ) as calls:
-            self.assertEqual(self.client.get_package(7).id, 7)
-            self.assertEqual(self.client.get_package(8).id, 8)
-        self.assertEqual(len(calls), 3)
-        self.assertEqual(calls[1]['headers']['Authorization'], 'Bearer token-1')
-        self.assertEqual(calls[2]['headers']['Authorization'], 'Bearer token-1')
-
-    def test_request_logs_in_again_once_after_expired_token(self):
+    def test_request_logs_in_again_after_expired_token(self):
         self.client.session.headers['Authorization'] = 'Bearer expired'
         with mock_neoship(
             make_response(401, {'message': 'Expired JWT Token'}),
@@ -116,6 +106,19 @@ class TestNeoshipClient(BaseCase):
         self.assertEqual(len(calls), 3)
         self.assertNotIn('Authorization', calls[1]['headers'])
         self.assertEqual(calls[2]['headers']['Authorization'], 'Bearer token-2')
+
+    def test_request_logs_in_again_only_once(self):
+        self.client.session.headers['Authorization'] = 'Bearer expired'
+        with (
+            mock_neoship(
+                make_response(401, {'message': 'Expired JWT Token'}),
+                make_response(json_data={'token': 'token-2'}),
+                make_response(401, {'message': 'Invalid JWT Token'}),
+            ) as calls,
+            self.assertRaises(NeoshipAuthError),
+        ):
+            self.client.get_package(7)
+        self.assertEqual(len(calls), 3)
 
     def test_label_is_returned_as_bytes(self):
         self.client.session.headers['Authorization'] = 'Bearer token-1'

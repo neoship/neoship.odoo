@@ -85,7 +85,7 @@ CLOSURE_ACTIONS = {
     SHIPPER_CODE_SK_POSTA: 'SK_POSTA_daily_closing',
 }
 CLOSURE_SHIPPERS_BY_DATE = (SHIPPER_CODE_PACKETA,)
-CLOSURE_NO_PACKAGES = 'K dispozícii niesu žiadne balíky.'
+CLOSURE_ERROR_NO_PACKAGES = 'no_packages'
 CLOSURE_TIMEOUT = 120
 CLOSURE_CRON_XMLID = 'delivery_neoship.ir_cron_neoship_closures'
 CLOSURE_DEDUP_MINUTES = 10

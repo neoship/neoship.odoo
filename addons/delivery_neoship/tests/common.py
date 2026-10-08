@@ -9,6 +9,8 @@ from odoo.tests import TransactionCase
 from odoo.addons.delivery_neoship import const
 from odoo.addons.delivery_neoship.models.neoship_api import clear_token_cache
 
+LOGIN_OK = {'token': 'token-1'}
+
 
 def make_response(status=200, json_data=None, content=b'', content_type='application/json'):
     response = requests.Response()
@@ -16,6 +18,10 @@ def make_response(status=200, json_data=None, content=b'', content_type='applica
     response.headers['Content-Type'] = content_type
     response._content = json.dumps(json_data).encode() if json_data is not None else content
     return response
+
+
+def login_ok():
+    return make_response(json_data=LOGIN_OK)
 
 
 @contextmanager

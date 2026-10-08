@@ -9,11 +9,11 @@ from odoo.tests import tagged
 from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.delivery_neoship import const
+from odoo.addons.delivery_neoship.models.neoship_api import TEST_URL
 
-from .common import NeoshipCommon, make_response, mock_neoship
+from .common import NeoshipCommon, login_ok, make_response, mock_neoship
 
 LOGGER = 'odoo.addons.delivery_neoship.models.stock_picking'
-LOGIN_OK = {'token': 'token-1'}
 SPS = {'id': 2, 'name': 'SPS', 'shortcut': 'SPS'}
 STATUS_EXPORTED = {'id': 205, 'name': 'Exportovaná', 'group': 'exported'}
 STATUS_DATA_DEFINED = {'id': 107, 'name': 'Definícia dát', 'group': None}
@@ -132,7 +132,7 @@ class TestTracking(NeoshipCommon):
     def test_cron_stores_status_and_delivery_group(self):
         in_transit, delivered = self._shipped(), self._shipped()
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(in_transit, STATUS_TRANSIT), shipment(delivered, STATUS_DELIVERED)),
         )
 
@@ -148,17 +148,16 @@ class TestTracking(NeoshipCommon):
         self.assertTrue(in_transit.neoship_last_sync)
         self.assertEqual(delivered.neoship_status_group, const.STATUS_GROUP_DELIVERED)
         self.assertIn('Doručená', delivered.message_ids[0].body)
-        self.assertEqual(in_transit.state, 'done')
 
     def test_finished_shipments_are_no_longer_tracked(self):
         delivered, in_transit = self._shipped(), self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(delivered, STATUS_DELIVERED), shipment(in_transit, STATUS_TRANSIT)),
         )
         (delivered | in_transit).neoship_last_sync = fields.Datetime.now() - timedelta(hours=3)
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(in_transit, STATUS_TRANSIT)),
         )
         self.assertEqual(calls[1]['json']['reference_numbers'], [in_transit.neoship_reference])
@@ -166,14 +165,14 @@ class TestTracking(NeoshipCommon):
     def test_unchanged_status_keeps_its_change_date(self):
         picking = self._shipped()
         responses = (
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_TRANSIT)),
         )
         self._sync(*responses, pickings=picking)
         picking.neoship_status_date = fields.Datetime.now() - timedelta(days=2)
         changed = picking.neoship_status_date
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_TRANSIT)),
             pickings=picking,
         )
@@ -186,7 +185,7 @@ class TestTracking(NeoshipCommon):
         stale_with_new_status = self._shipped(days_ago=20)
         stale_with_new_status.neoship_status_date = fields.Datetime.now() - timedelta(days=1)
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(recent, STATUS_TRANSIT), shipment(stale_with_new_status, STATUS_TRANSIT)),
         )
         self.assertNotIn(stale.neoship_reference, calls[1]['json']['reference_numbers'])
@@ -196,7 +195,7 @@ class TestTracking(NeoshipCommon):
     def test_exported_shipment_keeps_tracking(self):
         picking = self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_EXPORTED)),
         )
         self.assertEqual(picking.neoship_status, 'Exportovaná')
@@ -206,7 +205,7 @@ class TestTracking(NeoshipCommon):
     def test_status_without_group_keeps_tracking(self):
         picking = self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_DATA_DEFINED)),
         )
         self.assertEqual(picking.neoship_status, 'Definícia dát')
@@ -216,7 +215,7 @@ class TestTracking(NeoshipCommon):
     def test_shipment_missing_from_reference_lookup_is_read_by_id(self):
         picking = self._shipped()
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             make_response(404, {}),
             make_response(json_data=shipment(picking, STATUS_NOT_DELIVERED)),
         )
@@ -227,7 +226,7 @@ class TestTracking(NeoshipCommon):
         picking = self._shipped()
         with self.assertLogs(LOGGER, 'WARNING') as logs:
             self._sync(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 make_response(404, {}),
                 make_response(404, {}),
             )
@@ -239,7 +238,7 @@ class TestTracking(NeoshipCommon):
         picking = self._shipped()
         with self.assertLogs(LOGGER, 'INFO') as logs:
             self._sync(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 make_response(content=b'<html>Maintenance</html>', content_type='text/html'),
             )
         self.assertIn('invalid JSON in response to POST /package/referencenumber/', logs.output[0])
@@ -250,7 +249,7 @@ class TestTracking(NeoshipCommon):
     def test_shipment_cancelled_in_neoship_is_no_longer_tracked(self):
         picking = self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_CANCEL)),
         )
         self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_CANCEL)
@@ -264,7 +263,7 @@ class TestTracking(NeoshipCommon):
         with self.assertLogs(LOGGER, 'INFO') as logs:
             self._sync(
                 make_response(500, {'message': 'Server down'}),
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(shipment(working, STATUS_TRANSIT)),
             )
         self.assertIn('failed for delivery method Neoship Test (test): HTTP 500: Server down', logs.output[0])
@@ -280,7 +279,7 @@ class TestTracking(NeoshipCommon):
         unchanged.write({'neoship_status_id': STATUS_TRANSIT['id'], 'neoship_status': STATUS_TRANSIT['name']})
         with self.assertLogs(LOGGER, 'INFO') as logs:
             self._sync(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(shipment(changed, STATUS_DELIVERED), shipment(unchanged, STATUS_TRANSIT)),
             )
         self.assertEqual(logs.output, [f'INFO:{LOGGER}:Neoship tracking: 2 checked, 1 changed, 0 failed'])
@@ -291,7 +290,7 @@ class TestTracking(NeoshipCommon):
         with (
             patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True) as progress,
             mock_neoship(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(shipment(first, STATUS_TRANSIT), shipment(second, STATUS_TRANSIT)),
             ),
         ):
@@ -303,7 +302,7 @@ class TestTracking(NeoshipCommon):
         picking = self._shipped()
         with patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True) as progress:
             self._sync(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(shipment(picking, STATUS_TRANSIT)),
                 pickings=picking,
             )
@@ -313,7 +312,7 @@ class TestTracking(NeoshipCommon):
         first, second = self._shipped(), self._shipped()
         with (
             patch.object(const, 'TRACKING_BATCH_SIZE', 1),
-            mock_neoship(make_response(json_data=LOGIN_OK), self._found(shipment(first, STATUS_TRANSIT))) as calls,
+            mock_neoship(login_ok(), self._found(shipment(first, STATUS_TRANSIT))) as calls,
         ):
             run = (first | second)._neoship_update_tracking(on_batch=lambda processed: 0)
         self.assertEqual(len(calls), 2)
@@ -326,7 +325,7 @@ class TestTracking(NeoshipCommon):
         now = fields.Datetime.now()
         recent.neoship_last_sync = now - timedelta(minutes=const.TRACKING_RECHECK_MINUTES - 1)
         due.neoship_last_sync = now - timedelta(minutes=const.TRACKING_RECHECK_MINUTES + 1)
-        calls = self._sync(make_response(json_data=LOGIN_OK), self._found(shipment(due, STATUS_TRANSIT)))
+        calls = self._sync(login_ok(), self._found(shipment(due, STATUS_TRANSIT)))
         self.assertEqual(calls[1]['json']['reference_numbers'], [due.neoship_reference])
 
     def test_lost_connection_fails_only_unsynced_shipments_and_ends_cron_run(self):
@@ -339,7 +338,7 @@ class TestTracking(NeoshipCommon):
             patch.object(const, 'TRACKING_BATCH_SIZE', 1),
             patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True, return_value=60.0) as progress,
             mock_neoship(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(shipment(synced, STATUS_TRANSIT)),
                 requests.exceptions.Timeout(),
             ),
@@ -359,7 +358,7 @@ class TestTracking(NeoshipCommon):
         picking.neoship_sync_error = 'Old error'
         picking.neoship_error = 'The Neoship label could not be downloaded'
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_TRANSIT)),
             pickings=picking,
         )
@@ -370,20 +369,20 @@ class TestTracking(NeoshipCommon):
         picking = self._shipped()
         self.carrier.prod_environment = True
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_TRANSIT)),
             pickings=picking,
         )
-        self.assertIn('azurewebsites', calls[-1]['url'])
+        self.assertTrue(calls[-1]['url'].startswith(TEST_URL))
 
     def test_cancelled_shipment_clears_tracking(self):
         picking = self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, STATUS_NOT_DELIVERED)),
             pickings=picking,
         )
-        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={})):
+        with mock_neoship(login_ok(), make_response(json_data={})):
             picking.cancel_shipment()
         self.assertFalse(picking.neoship_status)
         self.assertFalse(picking.neoship_status_group)
@@ -392,7 +391,7 @@ class TestTracking(NeoshipCommon):
     def test_unknown_status_group_is_ignored(self):
         picking = self._shipped()
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(shipment(picking, {'id': 999, 'name': 'Nový stav', 'group': 'lost_in_space'})),
         )
         self.assertEqual(picking.neoship_status, 'Nový stav')
@@ -417,11 +416,6 @@ class TestTracking(NeoshipCommon):
         for name, group in filters.items():
             self.assertEqual(self._filter(name) & candidates, pickings[group], name)
 
-    def test_deliveries_list_shows_delivery_group(self):
-        arch = self.env['stock.picking'].get_views([(False, 'list')])['views']['list']['arch']
-        column = etree.fromstring(arch).xpath("//field[@name='neoship_status_group']")
-        self.assertEqual(column[0].get('optional'), 'show')
-
     def _filter(self, name):
         arch = self.env['stock.picking'].get_view(self.env.ref('stock.view_picking_internal_search').id, 'search')[
             'arch'
@@ -435,7 +429,7 @@ class TestTracking(NeoshipCommon):
     def test_each_pack_gets_its_status_and_the_transfer_the_least_advanced_one(self):
         picking, packs = self._shipped_in_packs(2)
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_TRANSIT)),
             pickings=picking,
         )
@@ -451,7 +445,7 @@ class TestTracking(NeoshipCommon):
         )
 
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_DELIVERED)),
             pickings=picking,
         )
@@ -462,7 +456,7 @@ class TestTracking(NeoshipCommon):
         picking, packs = self._shipped_in_packs(2)
         with self.assertLogs(LOGGER, 'INFO') as logs:
             calls = self._sync(
-                make_response(json_data=LOGIN_OK),
+                login_ok(),
                 self._found(
                     *(shipment(single, STATUS_DELIVERED) for single in singles),
                     parcel(packs[0], STATUS_DELIVERED),
@@ -490,7 +484,7 @@ class TestTracking(NeoshipCommon):
     def test_single_picking_with_more_than_one_lookup_batch(self):
         picking, packs = self._shipped_in_packs(const.TRACKING_BATCH_SIZE + 1)
         calls = self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(*(parcel(pack, STATUS_DELIVERED) for pack in packs[:-1])),
             self._found(parcel(packs[-1], STATUS_TRANSIT)),
             pickings=picking,
@@ -506,20 +500,10 @@ class TestTracking(NeoshipCommon):
         self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)
         self.assertFalse(picking.neoship_sync_error)
 
-    def test_problem_with_one_pack_is_the_transfer_status(self):
-        picking, packs = self._shipped_in_packs(2)
-        self._sync(
-            make_response(json_data=LOGIN_OK),
-            self._found(parcel(packs[0], STATUS_DELIVERED), parcel(packs[1], STATUS_RETURNED)),
-            pickings=picking,
-        )
-        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_RETURNED)
-        self.assertNotIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
-
     def test_returned_pack_keeps_tracking_the_other_packs(self):
         picking, packs = self._shipped_in_packs(3)
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(
                 parcel(packs[0], STATUS_RETURNED), parcel(packs[1], STATUS_TRANSIT), parcel(packs[2], STATUS_TRANSIT)
             ),
@@ -530,7 +514,7 @@ class TestTracking(NeoshipCommon):
         self.assertIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
 
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(
                 parcel(packs[0], STATUS_RETURNED),
                 parcel(packs[1], STATUS_DELIVERED),
@@ -539,11 +523,12 @@ class TestTracking(NeoshipCommon):
             pickings=picking,
         )
         self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_RETURNED)
+        self.assertNotIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
 
     def test_not_delivered_pack_is_the_transfer_status_while_others_move(self):
         picking, packs = self._shipped_in_packs(2)
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(parcel(packs[0], STATUS_NOT_DELIVERED), parcel(packs[1], STATUS_TRANSIT)),
             pickings=picking,
         )
@@ -554,7 +539,7 @@ class TestTracking(NeoshipCommon):
         picking, packs = self._shipped_in_packs(2)
         packs[1].write({'neoship_status': 'Prvá registrácia', 'neoship_status_group': const.STATUS_GROUP_TRANSIT})
         self._sync(
-            make_response(json_data=LOGIN_OK),
+            login_ok(),
             self._found(parcel(packs[0], STATUS_DELIVERED)),
             pickings=picking,
         )

@@ -65,7 +65,7 @@ class NeoshipClosure(models.Model):
             )
         if result.protocol or result.package_ids:
             return {**values, 'state': const.CLOSURE_STATE_DONE}
-        if result.errors.strip() == const.CLOSURE_NO_PACKAGES:
+        if result.error_code == const.CLOSURE_ERROR_NO_PACKAGES:
             return {**values, 'state': const.CLOSURE_STATE_EMPTY, 'message': False}
         return {
             **values,

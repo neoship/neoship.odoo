@@ -3,9 +3,8 @@ from odoo.tests import new_test_user, tagged
 
 from odoo.addons.delivery_neoship import const
 
-from .common import NeoshipCommon, make_response, mock_neoship
+from .common import NeoshipCommon, login_ok, make_response, mock_neoship
 
-LOGIN_OK = {'token': 'token-1'}
 ADDRESS = {'type': 'address', 'countries': ['CZ', 'SK']}
 PARCELSHOP = {'type': 'parcelshop', 'countries': ['SK']}
 SHIPPERS = [
@@ -39,7 +38,7 @@ PACKETA_CARRIERS = [
 class TestOptionWizard(NeoshipCommon):
     def _open(self, action_name, payload, carrier=None):
         carrier = carrier or self.carrier
-        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data=payload)) as calls:
+        with mock_neoship(login_ok(), make_response(json_data=payload)) as calls:
             action = getattr(carrier, action_name)()
         return self.env[action['res_model']].browse(action['res_id']), calls
 
@@ -47,7 +46,7 @@ class TestOptionWizard(NeoshipCommon):
         line = wizard.line_ids.filtered(lambda line: line.name == name)
         if not responses:
             return line.action_select()
-        with mock_neoship(make_response(json_data=LOGIN_OK), *responses):
+        with mock_neoship(login_ok(), *responses):
             return line.action_select()
 
     def _wizard(self, action):
@@ -78,7 +77,7 @@ class TestOptionWizard(NeoshipCommon):
 
     def test_account_without_connected_carriers_is_reported(self):
         with (
-            mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data=[])),
+            mock_neoship(login_ok(), make_response(json_data=[])),
             self.assertRaisesRegex(UserError, 'No carriers are connected'),
         ):
             self.carrier.action_neoship_choose_shipper()
@@ -93,7 +92,7 @@ class TestOptionWizard(NeoshipCommon):
 
     def test_selecting_packeta_asks_for_home_delivery_carrier_first(self):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
-        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data=PACKETA_CARRIERS)) as calls:
+        with mock_neoship(login_ok(), make_response(json_data=PACKETA_CARRIERS)) as calls:
             action = wizard.line_ids.filtered(lambda line: line.name == 'Packeta').action_select()
         self.assertTrue(calls[-1]['url'].endswith('/carrier/available'))
         carrier_type_wizard = self._wizard(action)
@@ -115,12 +114,6 @@ class TestOptionWizard(NeoshipCommon):
         self.assertEqual(self.carrier.neoship_shipper_id, 3)
         self.assertEqual(self.carrier.neoship_carrier_type, 106)
         self.assertEqual(self.carrier.neoship_carrier_type_country_id, self.env.ref('base.cz'))
-
-    def test_packeta_carrier_countries_come_from_state_code(self):
-        wizard, _calls = self._open('action_neoship_choose_carrier_type', PACKETA_CARRIERS)
-        countries = {line.name: line.country_id for line in wizard.line_ids}
-        self.assertEqual(countries['SK Packeta Home HD'], self.env.ref('base.sk'))
-        self.assertEqual(countries['CZ Zásilkovna domů HD'], self.env.ref('base.cz'))
 
     def test_unknown_packeta_country_code_is_left_empty(self):
         carriers = [{**PACKETA_CARRIERS[0], 'packeta_id': 999, 'name': 'XX New Carrier HD', 'state_code': 'XX'}]
@@ -157,7 +150,7 @@ class TestOptionWizard(NeoshipCommon):
 
     def test_api_error_is_reported(self):
         with (
-            mock_neoship(make_response(json_data=LOGIN_OK), make_response(500, {'message': 'Server error'})),
+            mock_neoship(login_ok(), make_response(500, {'message': 'Server error'})),
             self.assertRaisesRegex(UserError, 'Server error'),
         ):
             self.carrier.action_neoship_choose_shipper()

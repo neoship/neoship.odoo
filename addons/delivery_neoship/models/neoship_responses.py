@@ -95,6 +95,7 @@ class Shipment:
 @dataclass(frozen=True)
 class ClosureResult:
     errors: str
+    error_code: str | None
     package_ids: tuple
     protocol: str
 
@@ -103,6 +104,7 @@ class ClosureResult:
         errors = data.get('errors') or ''
         return cls(
             errors='; '.join(map(str, errors)) if isinstance(errors, list) else str(errors),
+            error_code=data.get('error_code'),
             package_ids=tuple(data.get('package_ids') or ()),
             protocol=data.get('protocol') or '',
         )

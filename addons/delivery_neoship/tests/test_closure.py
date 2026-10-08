@@ -10,9 +10,8 @@ from odoo.tests import tagged
 
 from odoo.addons.delivery_neoship import const
 
-from .common import NeoshipCommon, make_response, mock_neoship
+from .common import NeoshipCommon, login_ok, make_response, mock_neoship
 
-LOGIN_OK = {'token': 'token-1'}
 PDF = b'%PDF-1.4 protocol'
 # Wednesday, 15:30 in Europe/Bratislava (CEST)
 NOW = datetime(2026, 10, 7, 13, 30)
@@ -21,6 +20,10 @@ TODAY = date(2026, 10, 7)
 
 def closure_response(**data):
     return make_response(json_data=data)
+
+
+def protocol_response():
+    return closure_response(protocol=base64.b64encode(PDF).decode())
 
 
 @tagged('post_install', '-at_install')
@@ -59,7 +62,7 @@ class TestClosure(NeoshipCommon):
         )
 
     def _close(self, schedule, *responses):
-        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), *responses) as calls:
+        with freeze_time(NOW), mock_neoship(login_ok(), *responses) as calls:
             schedule.action_close_now()
         return calls, schedule.closure_ids[:1]
 
@@ -98,8 +101,8 @@ class TestClosure(NeoshipCommon):
             archived = self._schedule(self.sk_posta, closure_time=15.5)
         due.next_run = archived.next_run = NOW
         archived.active = False
-        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
-        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls:
+        protocol = protocol_response()
+        with freeze_time(NOW), mock_neoship(login_ok(), protocol) as calls:
             self.env['neoship.closure.schedule']._cron_run_closures()
         self.assertEqual(len(calls), 2)
         self.assertEqual(due.closure_ids.state, const.CLOSURE_STATE_DONE)
@@ -114,11 +117,11 @@ class TestClosure(NeoshipCommon):
             second = self._schedule(self.sk_posta, closure_time=15.5)
         (first | second).next_run = NOW
         cron = self.env.ref(const.CLOSURE_CRON_XMLID)
-        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
+        protocol = protocol_response()
         with (
             freeze_time(NOW),
             patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True) as progress,
-            mock_neoship(make_response(json_data=LOGIN_OK), protocol, make_response(json_data=LOGIN_OK), protocol),
+            mock_neoship(login_ok(), protocol, login_ok(), protocol),
         ):
             self.env['neoship.closure.schedule'].with_context(cron_id=cron.id)._cron_run_closures()
         self.assertEqual(progress.call_args_list[0].kwargs, {'remaining': 2})
@@ -130,9 +133,9 @@ class TestClosure(NeoshipCommon):
         with freeze_time(friday - timedelta(hours=1)):
             schedule = self._schedule(closure_time=15.0, sat=True, sun=True)
         self.assertEqual(schedule.next_run, friday)
-        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
+        protocol = protocol_response()
         for run_at in (friday, saturday):
-            with freeze_time(run_at), mock_neoship(make_response(json_data=LOGIN_OK), protocol):
+            with freeze_time(run_at), mock_neoship(login_ok(), protocol):
                 self.env['neoship.closure.schedule']._cron_run_closures()
         self.assertEqual(len(schedule.closure_ids), 2)
         self.assertEqual(schedule.next_run, datetime(2026, 10, 25, 14, 0), 'Sunday 15:00 CET is 14:00 UTC.')
@@ -175,7 +178,8 @@ class TestClosure(NeoshipCommon):
         self.assertFalse(closure.protocol)
 
     def test_nothing_to_close(self):
-        _calls, closure = self._close(self._schedule(), closure_response(errors=const.CLOSURE_NO_PACKAGES))
+        response = closure_response(errors='No packages to close.', error_code=const.CLOSURE_ERROR_NO_PACKAGES)
+        _calls, closure = self._close(self._schedule(), response)
         self.assertEqual(closure.state, const.CLOSURE_STATE_EMPTY)
         self.assertFalse(closure.message)
 
@@ -245,12 +249,12 @@ class TestClosure(NeoshipCommon):
     def test_delivery_method_can_close_several_times_a_day(self):
         morning = self._schedule(self.packeta, closure_time=11.0)
         evening = self._schedule(self.packeta, closure_time=20.0)
-        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
-        with freeze_time(datetime(2026, 10, 7, 9, 0)), mock_neoship(make_response(json_data=LOGIN_OK), protocol):
+        protocol = protocol_response()
+        with freeze_time(datetime(2026, 10, 7, 9, 0)), mock_neoship(login_ok(), protocol):
             morning._run_scheduled()
         with (
             freeze_time(datetime(2026, 10, 7, 18, 0)),
-            mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls,
+            mock_neoship(login_ok(), protocol) as calls,
         ):
             evening._run_scheduled()
         self.assertEqual(calls[1]['json']['date'], '2026-10-07')
@@ -259,29 +263,29 @@ class TestClosure(NeoshipCommon):
     def test_scheduled_run_skips_an_account_closed_minutes_ago(self):
         packeta_sk = self._schedule(self.packeta)
         packeta_cz = self._schedule(self.packeta.copy({'name': 'Neoship Packeta CZ', 'neoship_carrier_type': 14}))
-        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
-        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls:
+        protocol = protocol_response()
+        with freeze_time(NOW), mock_neoship(login_ok(), protocol) as calls:
             packeta_sk._run_scheduled()
             packeta_cz._run_scheduled()
         self.assertEqual(len(calls), 2)
         self.assertFalse(packeta_cz.closure_ids)
 
-        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls:
+        with freeze_time(NOW), mock_neoship(login_ok(), protocol) as calls:
             packeta_cz.action_close_now()
         self.assertEqual(len(calls), 2, 'A manual closure runs even when the account was just closed.')
 
         later = NOW + timedelta(minutes=const.CLOSURE_DEDUP_MINUTES + 1)
-        with freeze_time(later), mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls:
+        with freeze_time(later), mock_neoship(login_ok(), protocol) as calls:
             packeta_sk._run_scheduled()
         self.assertEqual(len(calls), 2)
 
     def test_failed_closure_does_not_block_next_run(self):
         schedule = self._schedule()
-        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), closure_response(errors='down')):
+        with freeze_time(NOW), mock_neoship(login_ok(), closure_response(errors='down')):
             schedule._run_scheduled()
         with (
             freeze_time(NOW),
-            mock_neoship(make_response(json_data=LOGIN_OK), closure_response(protocol=base64.b64encode(PDF).decode())),
+            mock_neoship(login_ok(), protocol_response()),
         ):
             schedule._run_scheduled()
         self.assertEqual(
