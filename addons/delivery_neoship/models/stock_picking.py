@@ -132,18 +132,39 @@ class StockPicking(models.Model):
             return neoship_code(f'{const.REFERENCE_COMPANY_PREFIX}{self.company_id.id}-{self.name}')
         return neoship_code(self.name)
 
-    def _neoship_check_reference_free(self, reference):
+    def _neoship_check_references_free(self, packages):
         self.ensure_one()
-        other = self.sudo().search([('neoship_reference', '=', reference), ('id', '!=', self.id)], limit=1)
+        references = []
+        for package in packages:
+            reference = package['reference_number']
+            references.append(reference)
+            # Neoship appends a numeric suffix to copies created through count_of_packages.
+            references.extend(f'{reference}{sequence}' for sequence in range(1, package.get('count_of_packages', 1)))
+        other = self.sudo().search([('neoship_reference', 'in', references), ('id', '!=', self.id)], limit=1)
         if other:
             raise UserError(
                 self.env._(
                     'Neoship reference %(reference)s of transfer %(transfer)s is already used by transfer '
                     '%(other)s (%(company)s).',
-                    reference=reference,
+                    reference=other.neoship_reference,
                     transfer=self.name,
                     other=other.name,
                     company=other.company_id.name,
+                )
+            )
+        own_pack_ids = self._neoship_sent_packs().ids if self.neoship_package_id else []
+        other_pack = (
+            self.env['stock.package']
+            .sudo()
+            .search([('neoship_reference', 'in', references), ('id', 'not in', own_pack_ids)], limit=1)
+        )
+        if other_pack:
+            raise UserError(
+                self.env._(
+                    'Neoship reference %(reference)s of transfer %(transfer)s is already used by package %(package)s.',
+                    reference=other_pack.neoship_reference,
+                    transfer=self.name,
+                    package=other_pack.name,
                 )
             )
 
@@ -517,8 +538,10 @@ class StockPicking(models.Model):
         return stats
 
     def _neoship_sync_batch(self, client):
-        shipments = client.find_packages([reference for picking in self for reference in picking._neoship_references()])
-        by_id = {shipment['id']: shipment for shipment in shipments}
+        references = [reference for picking in self for reference in picking._neoship_references()]
+        by_id = {}
+        for batch in split_every(const.TRACKING_BATCH_SIZE, references, list):
+            by_id.update({shipment['id']: shipment for shipment in client.find_packages(batch)})
         changed = failed = 0
         for picking in self:
             shipment = by_id.get(picking.neoship_package_id)

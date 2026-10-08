@@ -398,6 +398,55 @@ class TestTracking(NeoshipCommon):
         )
         self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_DELIVERED)
 
+    def test_cron_splits_lookup_by_parcel_reference_count(self):
+        singles = self.env['stock.picking'].union(*(self._shipped() for _ in range(const.TRACKING_BATCH_SIZE - 1)))
+        picking, packs = self._shipped_in_packs(2)
+        with self.assertLogs(LOGGER, 'INFO') as logs:
+            calls = self._sync(
+                make_response(json_data=LOGIN_OK),
+                self._found(
+                    *(shipment(single, STATUS_DELIVERED) for single in singles),
+                    parcel(packs[0], STATUS_DELIVERED),
+                ),
+                self._found(parcel(packs[1], STATUS_TRANSIT)),
+            )
+
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(
+            calls[1]['json']['reference_numbers'],
+            [*singles.mapped('neoship_reference'), packs[0].neoship_reference],
+        )
+        self.assertEqual(calls[2]['json']['reference_numbers'], [packs[1].neoship_reference])
+        self.assertEqual(singles.mapped('neoship_status_group'), [const.STATUS_GROUP_DELIVERED] * len(singles))
+        self.assertEqual(
+            packs.mapped('neoship_status_group'), [const.STATUS_GROUP_DELIVERED, const.STATUS_GROUP_TRANSIT]
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertFalse(any((singles | picking).mapped('neoship_sync_error')))
+        self.assertEqual(
+            logs.output,
+            [f'INFO:{LOGGER}:Neoship tracking: {len(singles) + 1} checked, {len(singles) + 1} changed, 0 failed'],
+        )
+
+    def test_single_picking_with_more_than_one_lookup_batch(self):
+        picking, packs = self._shipped_in_packs(const.TRACKING_BATCH_SIZE + 1)
+        calls = self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(*(parcel(pack, STATUS_DELIVERED) for pack in packs[:-1])),
+            self._found(parcel(packs[-1], STATUS_TRANSIT)),
+            pickings=picking,
+        )
+
+        self.assertEqual(len(calls), 3)
+        self.assertEqual(calls[1]['json']['reference_numbers'], packs[:-1].mapped('neoship_reference'))
+        self.assertEqual(calls[2]['json']['reference_numbers'], [packs[-1].neoship_reference])
+        self.assertEqual(
+            packs.mapped('neoship_status_group'),
+            [const.STATUS_GROUP_DELIVERED] * const.TRACKING_BATCH_SIZE + [const.STATUS_GROUP_TRANSIT],
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertFalse(picking.neoship_sync_error)
+
     def test_problem_with_one_pack_is_the_transfer_status(self):
         picking, packs = self._shipped_in_packs(2)
         self._sync(

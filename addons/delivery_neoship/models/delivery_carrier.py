@@ -363,7 +363,7 @@ class DeliveryCarrier(models.Model):
         picking._neoship_lock()
         packages = picking._neoship_prepare_packages()
         main = packages[0]
-        picking._neoship_check_reference_free(main['reference_number'])
+        picking._neoship_check_references_free(packages)
         with self._neoship_client() as client:
             shipments = self._neoship_find_or_create(client, picking, packages)
             parcels = self._neoship_parcels(client, shipments, main.get('count_of_packages', 1))
@@ -521,7 +521,9 @@ class DeliveryCarrier(models.Model):
         if 'count_of_packages' in package:
             old_count = len(shipment.get('packages') or []) + 1
             if old_count != package['count_of_packages']:
-                changes.append(f'count_of_packages: {old_count} → {package["count_of_packages"]}')
+                changes.append(
+                    self.env._('count_of_packages: %(old)s → %(new)s', old=old_count, new=package['count_of_packages'])
+                )
         old_cod = float(shipment.get('cod_price') or 0.0)
         new_cod = package.get('cod_price', 0.0)
         if float_compare(old_cod, new_cod, precision_digits=const.COD_PRECISION_DIGITS):
