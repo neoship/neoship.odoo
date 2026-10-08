@@ -11,6 +11,16 @@
         <field name="nextcall" eval="DateTime.now().strftime('%Y-%m-%d 00:30:00')"/>
     </record>
 
+    <!-- Each schedule triggers this cron at its next run; the hourly interval catches a missed trigger. -->
+    <record id="ir_cron_neoship_closures" model="ir.cron">
+        <field name="name">Neoship: Closures</field>
+        <field name="model_id" ref="model_neoship_closure_schedule"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_run_closures()</field>
+        <field name="interval_number" eval="1"/>
+        <field name="interval_type">hours</field>
+    </record>
+
     <record id="config_parameter_tracking_days" model="ir.config_parameter">
         <field name="key">delivery_neoship.tracking_days</field>
         <field name="value">30</field>

@@ -177,7 +177,7 @@ class TestOptionWizard(NeoshipCommon):
         schedule = self._schedules()
         self.assertEqual(len(schedule), 1)
         self.assertFalse(schedule.active)
-        self.assertFalse(schedule.cron_id.active)
+        self.assertFalse(schedule.next_run)
         self.assertEqual(schedule.closure_time, const.CLOSURE_DEFAULT_TIME)
         self.assertEqual([schedule[day] for day in const.WEEKDAY_FIELDS], [True, True, True, True, True, False, False])
         self.assertEqual(action['tag'], 'display_notification')
@@ -223,7 +223,7 @@ class TestOptionWizard(NeoshipCommon):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
         self._select(wizard, '123kuriér')
         self.assertFalse(schedule.active)
-        self.assertFalse(schedule.cron_id.active)
+        self.assertFalse(schedule.next_run)
 
     def test_switching_environment_archives_schedule(self):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)

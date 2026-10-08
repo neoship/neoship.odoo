@@ -13,7 +13,7 @@ from .neoship_api import NeoshipError
 
 _logger = logging.getLogger(__name__)
 
-CRON_DEPENDS = {'active', 'carrier_id', 'closure_time', 'tz'}
+NEXT_RUN_DEPENDS = {'active', 'closure_time', 'tz'}
 
 
 class NeoshipClosureSchedule(models.Model):
@@ -41,8 +41,7 @@ class NeoshipClosureSchedule(models.Model):
     fri = fields.Boolean(default=True)
     sat = fields.Boolean()
     sun = fields.Boolean()
-    cron_id = fields.Many2one('ir.cron', required=True, readonly=True, ondelete='cascade')
-    next_run = fields.Datetime(related='cron_id.nextcall', string='Next Run')
+    next_run = fields.Datetime(copy=False, readonly=True, index=True)
     closure_ids = fields.One2many('neoship.closure', 'schedule_id', string='Closures')
     closure_count = fields.Integer(compute='_compute_closure_count')
 
@@ -73,55 +72,35 @@ class NeoshipClosureSchedule(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        crons = (
-            self.env['ir.cron']
-            .sudo()
-            .create(
-                [
-                    {
-                        'name': 'Neoship: Closure',
-                        'user_id': self.env.ref('base.user_root').id,
-                        'active': False,
-                        'interval_type': const.ODOO_CRON_INTERVAL_DAYS,
-                        'interval_number': 1,
-                        'model_id': self.env['ir.model']._get_id(self._name),
-                        'state': const.ODOO_SERVER_ACTION_CODE,
-                        'code': '',
-                    }
-                    for _vals in vals_list
-                ]
-            )
-        )
-        for vals, cron in zip(vals_list, crons, strict=True):
-            vals['cron_id'] = cron.id
         schedules = super().create(vals_list)
-        schedules._sync_cron()
+        schedules._schedule_next_run()
         return schedules
 
     def write(self, vals):
         result = super().write(vals)
-        if not CRON_DEPENDS.isdisjoint(vals):
-            self._sync_cron()
+        if not NEXT_RUN_DEPENDS.isdisjoint(vals):
+            self._schedule_next_run()
         return result
 
-    def unlink(self):
-        crons = self.cron_id.sudo()
-        server_actions = crons.ir_actions_server_id
-        result = super().unlink()
-        crons.unlink()
-        server_actions.unlink()
-        return result
-
-    def _sync_cron(self):
+    def _schedule_next_run(self):
         for schedule in self:
-            schedule.cron_id.sudo().write(
-                {
-                    'name': f'Neoship: Closure ({schedule.carrier_id.name})',
-                    'active': schedule.active,
-                    'nextcall': schedule._next_call(),
-                    'code': f'model.browse({schedule.id})._run_scheduled()',
-                }
-            )
+            schedule.next_run = schedule.active and schedule._next_call()
+        next_runs = [run for run in self.mapped('next_run') if run]
+        cron = self.env.ref(const.CLOSURE_CRON_XMLID, raise_if_not_found=False)
+        if cron and next_runs:
+            cron._trigger(next_runs)
+
+    @api.model
+    def _cron_run_closures(self):
+        schedules = self.search([('next_run', '<=', fields.Datetime.now())])
+        cron = self.env['ir.cron'] if self.env.context.get('cron_id') else None
+        if cron:
+            cron._commit_progress(remaining=len(schedules))
+        for schedule in schedules:
+            schedule._run_scheduled()
+            schedule._schedule_next_run()
+            if cron:
+                cron._commit_progress(1)
 
     def _next_call(self):
         self.ensure_one()

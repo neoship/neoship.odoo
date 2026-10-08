@@ -67,27 +67,56 @@ class TestClosure(NeoshipCommon):
         with self.assertRaises(ValidationError):
             self._schedule(gls)
 
+    def _closure_triggers(self, at):
+        cron = self.env.ref(const.CLOSURE_CRON_XMLID)
+        return self.env['ir.cron.trigger'].search([('cron_id', '=', cron.id), ('call_at', '=', at)])
+
     def test_schedule_runs_daily_at_local_time(self):
         with freeze_time(NOW):
             schedule = self._schedule(closure_time=15.0)
-            cron = schedule.cron_id
-            self.assertTrue(cron.active)
-            self.assertEqual(cron.interval_type, const.ODOO_CRON_INTERVAL_DAYS)
-            self.assertEqual(cron.interval_number, 1)
             # 15:00 CEST has passed today, so the first run is tomorrow at 13:00 UTC.
-            self.assertEqual(cron.nextcall, datetime(2026, 10, 8, 13, 0))
-            self.assertEqual(cron.code, f'model.browse({schedule.id})._run_scheduled()')
+            self.assertEqual(schedule.next_run, datetime(2026, 10, 8, 13, 0))
+            self.assertTrue(self._closure_triggers(datetime(2026, 10, 8, 13, 0)))
 
             schedule.closure_time = 16.5
-            self.assertEqual(cron.nextcall, datetime(2026, 10, 7, 14, 30))
+            self.assertEqual(schedule.next_run, datetime(2026, 10, 7, 14, 30))
+            self.assertTrue(self._closure_triggers(datetime(2026, 10, 7, 14, 30)))
 
-        schedule.active = False
-        self.assertFalse(cron.active)
+            schedule.active = False
+            self.assertFalse(schedule.next_run)
 
-        server_action = cron.ir_actions_server_id
-        schedule.unlink()
-        self.assertFalse(cron.exists())
-        self.assertFalse(server_action.exists())
+            schedule.active = True
+            self.assertEqual(schedule.next_run, datetime(2026, 10, 7, 14, 30))
+
+    def test_cron_runs_only_due_schedules(self):
+        with freeze_time(NOW):
+            due = self._schedule(closure_time=15.5)
+            later = self._schedule(self.packeta, closure_time=17.0)
+            archived = self._schedule(self.sk_posta, closure_time=15.5)
+        due.next_run = archived.next_run = NOW
+        archived.active = False
+        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
+        with freeze_time(NOW), mock_neoship(make_response(json_data=LOGIN_OK), protocol) as calls:
+            self.env['neoship.closure.schedule']._cron_run_closures()
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(due.closure_ids.state, const.CLOSURE_STATE_DONE)
+        self.assertFalse(later.closure_ids)
+        self.assertFalse(archived.closure_ids)
+        self.assertEqual(due.next_run, datetime(2026, 10, 8, 13, 30))
+        self.assertEqual(later.next_run, datetime(2026, 10, 7, 15, 0))
+
+    def test_schedule_keeps_local_time_across_dst_change(self):
+        # Europe/Bratislava leaves summer time on Sunday 2026-10-25.
+        friday, saturday = datetime(2026, 10, 23, 13, 0), datetime(2026, 10, 24, 13, 0)
+        with freeze_time(friday - timedelta(hours=1)):
+            schedule = self._schedule(closure_time=15.0, sat=True, sun=True)
+        self.assertEqual(schedule.next_run, friday)
+        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
+        for run_at in (friday, saturday):
+            with freeze_time(run_at), mock_neoship(make_response(json_data=LOGIN_OK), protocol):
+                self.env['neoship.closure.schedule']._cron_run_closures()
+        self.assertEqual(len(schedule.closure_ids), 2)
+        self.assertEqual(schedule.next_run, datetime(2026, 10, 25, 14, 0), 'Sunday 15:00 CET is 14:00 UTC.')
 
     def test_sps_closure_stores_protocol(self):
         calls, closure = self._close(
