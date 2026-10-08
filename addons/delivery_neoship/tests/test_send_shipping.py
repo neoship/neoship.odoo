@@ -679,6 +679,19 @@ class TestSendShipping(NeoshipCommon):
         self.assertEqual(picking.neoship_package_id, 501)
         self.assertEqual(picking.carrier_tracking_ref, 'TRK1')
 
+    def test_cancel_after_refused_cancel_clears_shipment(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        with mock_neoship(make_response(json_data=LOGIN_OK), NOT_FOUND):
+            picking.cancel_shipment()
+        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={})):
+            action = picking.cancel_shipment()
+        self.assertIsNone(action)
+        self.assertFalse(picking.neoship_cancel_refused)
+        self.assertFalse(picking.neoship_error)
+        self.assertFalse(picking.neoship_package_id)
+        self.assertFalse(picking.carrier_tracking_ref)
+
     def test_order_can_be_cancelled_after_shipment_cancel_is_refused(self):
         picking = self._picking()
         self._send(picking, NOT_FOUND, created(), label())

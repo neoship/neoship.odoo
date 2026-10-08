@@ -376,6 +376,7 @@ class DeliveryCarrier(models.Model):
                     'neoship_reference': main['reference_number'],
                     'neoship_shipment_per_pack': len(shipments) > 1,
                     'neoship_cod_amount': main.get('cod_price', 0.0),
+                    'neoship_cancel_refused': False,
                     'neoship_error': False,
                     **picking._neoship_tracking_reset_values(),
                 }
@@ -583,6 +584,7 @@ class DeliveryCarrier(models.Model):
         return json.dumps(links)
 
     def neoship_cancel_shipment(self, pickings):
+        refused_pickings = pickings.browse()
         for picking in pickings.filtered('neoship_package_id'):
             refused = []
             try:
@@ -601,6 +603,7 @@ class DeliveryCarrier(models.Model):
                 )
                 picking.write({'neoship_cancel_refused': True, 'neoship_error': message})
                 picking.message_post(body=message)
+                refused_pickings |= picking
                 continue
             for pack in picking._neoship_sent_packs():
                 pack.write(pack._neoship_clear_values())
@@ -609,7 +612,9 @@ class DeliveryCarrier(models.Model):
                     'neoship_package_id': False,
                     'neoship_shipment_per_pack': False,
                     'neoship_cod_amount': 0.0,
+                    'neoship_cancel_refused': False,
                     'neoship_error': False,
                     **picking._neoship_tracking_reset_values(),
                 }
             )
+        return refused_pickings

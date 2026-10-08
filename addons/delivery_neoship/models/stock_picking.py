@@ -7,7 +7,7 @@ from odoo.exceptions import LockError, UserError
 from odoo.tools import float_round, ormcache, split_every
 
 from .. import const
-from .neoship_api import NeoshipError, NeoshipNotFoundError
+from .neoship_api import NeoshipConnectionError, NeoshipError, NeoshipNotFoundError
 
 _logger = logging.getLogger(__name__)
 
@@ -42,15 +42,19 @@ def neoship_status_group(status):
 
 
 def neoship_combined_status_group(groups):
-    for problem in (const.STATUS_GROUP_RETURNED, const.STATUS_GROUP_NOT_DELIVERED):
-        if problem in groups:
-            return problem
     active = [group for group in groups if group != const.STATUS_GROUP_CANCEL]
     if not active:
         return const.STATUS_GROUP_CANCEL
+    if const.STATUS_GROUP_NOT_DELIVERED in active:
+        return const.STATUS_GROUP_NOT_DELIVERED
     if not all(active):
         return False
-    return min(active, key=const.STATUS_GROUPS.index)
+    pending = [group for group in active if group not in const.STATUS_GROUPS_FINAL]
+    if pending:
+        return min(pending, key=const.STATUS_GROUPS.index)
+    if const.STATUS_GROUP_RETURNED in active:
+        return const.STATUS_GROUP_RETURNED
+    return const.STATUS_GROUP_DELIVERED
 
 
 def neoship_parcel_reference(reference, sequence):
@@ -441,12 +445,14 @@ class StockPicking(models.Model):
         neoship = self.filtered(lambda picking: picking.delivery_type == const.DELIVERY_TYPE)
         super(StockPicking, self - neoship).cancel_shipment()
         # Core always reports success and clears the tracking number; a refused cancel must keep both.
+        refused = self.browse()
         for picking in neoship:
-            picking.carrier_id.cancel_shipment(picking)
-            if not picking.neoship_cancel_refused:
-                picking.message_post(body=self.env._('Shipment %s cancelled', picking.carrier_tracking_ref))
-                picking.carrier_tracking_ref = False
-        refused = neoship.filtered('neoship_cancel_refused')
+            picking_refused = picking.carrier_id.cancel_shipment(picking)
+            if picking_refused:
+                refused |= picking_refused
+                continue
+            picking.message_post(body=self.env._('Shipment %s cancelled', picking.carrier_tracking_ref))
+            picking.carrier_tracking_ref = False
         if not refused:
             return None
         return {
@@ -476,8 +482,15 @@ class StockPicking(models.Model):
         days = int(
             self.env['ir.config_parameter'].sudo().get_param(const.TRACKING_DAYS_PARAM, const.TRACKING_DAYS_DEFAULT)
         )
+        now = fields.Datetime.now()
+        # Odoo reruns the job while progress reports remaining work; skipping fresh syncs lets the cycle end.
         pickings = self.search(
-            self._neoship_tracking_domain(fields.Datetime.now() - timedelta(days=days)),
+            [
+                *self._neoship_tracking_domain(now - timedelta(days=days)),
+                '|',
+                ('neoship_last_sync', '=', False),
+                ('neoship_last_sync', '<', now - timedelta(minutes=const.TRACKING_RECHECK_MINUTES)),
+            ],
             order='neoship_last_sync ASC NULLS FIRST, id',
             limit=const.TRACKING_LIMIT_PER_RUN,
         )
@@ -487,6 +500,8 @@ class StockPicking(models.Model):
             cron._commit_progress(remaining=len(pickings))
             on_batch = cron._commit_progress
         stats = pickings._neoship_update_tracking(on_batch)
+        if stats['unreachable'] and on_batch:
+            cron._commit_progress(remaining=0)
         _logger.info(
             'Neoship tracking: %s checked, %s changed, %s failed', stats['checked'], stats['changed'], stats['failed']
         )
@@ -511,18 +526,24 @@ class StockPicking(models.Model):
         self._neoship_update_tracking()
 
     def _neoship_update_tracking(self, on_batch=None):
-        stats = {'checked': 0, 'changed': 0, 'failed': 0}
+        stats = {'checked': 0, 'changed': 0, 'failed': 0, 'unreachable': False}
+        synced = self.browse()
+        time_left = float('inf')
 
         def done(pickings, changed=0, failed=0):
+            nonlocal synced, time_left
+            synced |= pickings
             stats['checked'] += len(pickings)
             stats['changed'] += changed
             stats['failed'] += failed
             if on_batch:
-                on_batch(len(pickings))
+                time_left = on_batch(len(pickings))
 
         for (carrier, prod_environment), pickings in self.grouped(
             lambda picking: (picking.carrier_id, picking.neoship_prod_environment)
         ).items():
+            if not time_left or stats['unreachable']:
+                break
             environment = const.ENVIRONMENT_PRODUCTION if prod_environment else const.ENVIRONMENT_TEST
             try:
                 with carrier._neoship_client(prod_environment) as client:
@@ -530,6 +551,8 @@ class StockPicking(models.Model):
                     for batch in split_every(const.TRACKING_BATCH_SIZE, pickings.ids, self.browse):
                         try:
                             changed, failed = batch._neoship_sync_batch(client)
+                        except NeoshipConnectionError:
+                            raise
                         except NeoshipError as e:
                             _logger.warning(
                                 'Neoship tracking failed for %s shipments of delivery method %s (%s): %s',
@@ -541,11 +564,15 @@ class StockPicking(models.Model):
                             batch._neoship_sync_failed(carrier._neoship_user_error(e).args[0])
                             changed, failed = 0, len(batch)
                         done(batch, changed, failed)
+                        if not time_left:
+                            break
             except (NeoshipError, UserError) as e:
                 _logger.warning('Neoship tracking failed for delivery method %s (%s): %s', carrier.name, environment, e)
+                stats['unreachable'] = isinstance(e, NeoshipConnectionError)
                 message = carrier._neoship_user_error(e).args[0] if isinstance(e, NeoshipError) else e.args[0]
-                pickings._neoship_sync_failed(message)
-                done(pickings, failed=len(pickings))
+                rest = pickings - synced
+                rest._neoship_sync_failed(message)
+                done(rest, failed=len(rest))
         return stats
 
     def _neoship_sync_batch(self, client):
@@ -559,6 +586,8 @@ class StockPicking(models.Model):
             if shipment is None:
                 try:
                     shipment = client.get_package(picking.neoship_package_id)
+                except NeoshipConnectionError:
+                    raise
                 except NeoshipNotFoundError:
                     _logger.warning(
                         'Neoship shipment %s (package %s, transfer %s) was not found',

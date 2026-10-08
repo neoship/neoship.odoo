@@ -1,6 +1,7 @@
 from datetime import timedelta
 from unittest.mock import patch
 
+import requests
 from lxml import etree
 
 from odoo import fields
@@ -155,6 +156,7 @@ class TestTracking(NeoshipCommon):
             make_response(json_data=LOGIN_OK),
             self._found(shipment(delivered, STATUS_DELIVERED), shipment(in_transit, STATUS_TRANSIT)),
         )
+        (delivered | in_transit).neoship_last_sync = fields.Datetime.now() - timedelta(hours=3)
         calls = self._sync(
             make_response(json_data=LOGIN_OK),
             self._found(shipment(in_transit, STATUS_TRANSIT)),
@@ -294,6 +296,51 @@ class TestTracking(NeoshipCommon):
                 pickings=picking,
             )
         progress.assert_not_called()
+
+    def test_tracking_stops_when_cron_time_is_spent(self):
+        first, second = self._shipped(), self._shipped()
+        with (
+            patch.object(const, 'TRACKING_BATCH_SIZE', 1),
+            mock_neoship(make_response(json_data=LOGIN_OK), self._found(shipment(first, STATUS_TRANSIT))) as calls,
+        ):
+            stats = (first | second)._neoship_update_tracking(on_batch=lambda processed: 0)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(first.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertFalse(second.neoship_last_sync)
+        self.assertEqual(stats['checked'], 1)
+
+    def test_cron_skips_shipments_synced_recently(self):
+        recent, due = self._shipped(), self._shipped()
+        now = fields.Datetime.now()
+        recent.neoship_last_sync = now - timedelta(minutes=const.TRACKING_RECHECK_MINUTES - 1)
+        due.neoship_last_sync = now - timedelta(minutes=const.TRACKING_RECHECK_MINUTES + 1)
+        calls = self._sync(make_response(json_data=LOGIN_OK), self._found(shipment(due, STATUS_TRANSIT)))
+        self.assertEqual(calls[1]['json']['reference_numbers'], [due.neoship_reference])
+
+    def test_lost_connection_fails_only_unsynced_shipments_and_ends_cron_run(self):
+        other_carrier = self.carrier.copy({'name': 'Neoship Other', 'neoship_shipper_id': 2})
+        other_carrier.sudo().write({'neoship_username': 'other@example.com', 'neoship_password': 'other-password'})
+        synced, timed_out, not_reached = self._shipped(), self._shipped(), self._shipped()
+        untouched = self._shipped(carrier=other_carrier)
+        cron = self.env.ref('delivery_neoship.ir_cron_neoship_update_tracking')
+        with (
+            patch.object(const, 'TRACKING_BATCH_SIZE', 1),
+            patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True, return_value=60.0) as progress,
+            mock_neoship(
+                make_response(json_data=LOGIN_OK),
+                self._found(shipment(synced, STATUS_TRANSIT)),
+                requests.exceptions.Timeout(),
+            ),
+            self.assertLogs(LOGGER, 'INFO') as logs,
+        ):
+            self.env['stock.picking'].with_context(cron_id=cron.id)._cron_neoship_update_tracking()
+        self.assertEqual(synced.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertFalse(synced.neoship_sync_error)
+        for picking in timed_out | not_reached:
+            self.assertIn('did not respond in time', picking.neoship_sync_error)
+        self.assertFalse(untouched.neoship_last_sync)
+        self.assertEqual(progress.call_args_list[-1].kwargs, {'remaining': 0})
+        self.assertIn('3 checked, 1 changed, 2 failed', logs.output[-1])
 
     def test_successful_sync_clears_previous_tracking_error(self):
         picking = self._shipped()
@@ -455,6 +502,41 @@ class TestTracking(NeoshipCommon):
             pickings=picking,
         )
         self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_RETURNED)
+        self.assertNotIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
+
+    def test_returned_pack_keeps_tracking_the_other_packs(self):
+        picking, packs = self._shipped_in_packs(3)
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(
+                parcel(packs[0], STATUS_RETURNED), parcel(packs[1], STATUS_TRANSIT), parcel(packs[2], STATUS_TRANSIT)
+            ),
+            pickings=picking,
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_TRANSIT)
+        self.assertIn(f'{packs[0].neoship_tracking_ref}: Vrátená odosielateľovi', picking.neoship_status)
+        self.assertIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
+
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(
+                parcel(packs[0], STATUS_RETURNED),
+                parcel(packs[1], STATUS_DELIVERED),
+                parcel(packs[2], STATUS_DELIVERED),
+            ),
+            pickings=picking,
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_RETURNED)
+
+    def test_not_delivered_pack_is_the_transfer_status_while_others_move(self):
+        picking, packs = self._shipped_in_packs(2)
+        self._sync(
+            make_response(json_data=LOGIN_OK),
+            self._found(parcel(packs[0], STATUS_NOT_DELIVERED), parcel(packs[1], STATUS_TRANSIT)),
+            pickings=picking,
+        )
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_NOT_DELIVERED)
+        self.assertIn(picking, self.env['stock.picking'].search(self._tracking_domain()))
 
     def test_pack_missing_from_lookup_keeps_its_last_status(self):
         picking, packs = self._shipped_in_packs(2)
