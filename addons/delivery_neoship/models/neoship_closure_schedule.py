@@ -9,6 +9,7 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.addons.base.models.res_partner import _tz_get
 
 from .. import const
+from .delivery_carrier import neoship_shipper_key
 from .neoship_api import NeoshipError
 
 _logger = logging.getLogger(__name__)
@@ -143,18 +144,12 @@ class NeoshipClosureSchedule(models.Model):
         return action
 
     def _closes_by_date(self):
-        return (self.carrier_id.neoship_shipper_code or '').lower() in const.CLOSURE_SHIPPERS_BY_DATE
+        return neoship_shipper_key(self.carrier_id.neoship_shipper_code) in const.CLOSURE_SHIPPERS_BY_DATE
 
     def _account_closures_domain(self):
         carrier = self.carrier_id.sudo()
-        same_account = carrier.with_context(active_test=False).search(
-            [
-                ('delivery_type', '=', const.DELIVERY_TYPE),
-                ('neoship_username', '=', carrier.neoship_username),
-            ]
-        )
         return [
-            ('carrier_id', 'in', same_account.ids),
+            ('carrier_id', 'in', carrier._neoship_same_shipper_account().ids),
             ('action', '=', carrier._neoship_closure_action()),
             ('prod_environment', '=', carrier.prod_environment),
             ('state', '=', const.CLOSURE_STATE_DONE),

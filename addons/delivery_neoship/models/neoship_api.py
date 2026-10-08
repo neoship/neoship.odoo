@@ -1,3 +1,7 @@
+import base64
+import hashlib
+import json
+import time
 from http import HTTPStatus
 
 import requests
@@ -6,6 +10,21 @@ PROD_URL = 'https://apiserver.neoship.sk/api'
 TEST_URL = 'https://t-we-nshp-api-01-app.azurewebsites.net/api'
 PROD_TRACKING_URL = 'https://aplikacia.neoship.sk/tracking/'
 TEST_TRACKING_URL = 'https://t-we-nshp-webapp-01-app.azurewebsites.net/tracking/'
+TOKEN_EXPIRY_MARGIN = 60
+
+_tokens = {}
+
+
+def clear_token_cache():
+    _tokens.clear()
+
+
+def token_expiry(token):
+    try:
+        payload = token.split('.')[1]
+        return float(json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))['exp'])
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):
+        return None
 
 
 class NeoshipError(Exception):
@@ -47,6 +66,7 @@ class NeoshipClient:
 
     def login(self):
         self.session.headers.pop('Authorization', None)
+        _tokens.pop(self._token_key(), None)
         data = self._send(
             'POST',
             '/login_check',
@@ -55,8 +75,19 @@ class NeoshipClient:
                 'password': self.password,
             },
         )
-        self.session.headers['Authorization'] = f'Bearer {data["token"]}'
-        return data['token']
+        token = data['token']
+        self.session.headers['Authorization'] = f'Bearer {token}'
+        expiry = token_expiry(token)
+        if expiry:
+            _tokens[self._token_key()] = (token, expiry)
+        return token
+
+    def _token_key(self):
+        return self.base_url, self.username, hashlib.sha256((self.password or '').encode()).hexdigest()
+
+    def _cached_token(self):
+        token, expiry = _tokens.get(self._token_key(), (None, 0))
+        return token if expiry - TOKEN_EXPIRY_MARGIN > time.time() else None
 
     def get_active_shippers(self):
         return self.request('GET', '/shipper/active')
@@ -96,7 +127,11 @@ class NeoshipClient:
 
     def request(self, method, path, **kwargs):
         if 'Authorization' not in self.session.headers:
-            self.login()
+            token = self._cached_token()
+            if token:
+                self.session.headers['Authorization'] = f'Bearer {token}'
+            else:
+                self.login()
         try:
             return self._send(method, path, **kwargs)
         except NeoshipAuthError:

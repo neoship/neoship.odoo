@@ -1,3 +1,7 @@
+import base64
+import json
+import time
+
 import requests
 
 from odoo.tests import BaseCase, tagged
@@ -8,6 +12,7 @@ from odoo.addons.delivery_neoship.models.neoship_api import (
     NeoshipConnectionError,
     NeoshipError,
     NeoshipTimeout,
+    clear_token_cache,
 )
 
 from .common import make_response, mock_neoship
@@ -15,12 +20,62 @@ from .common import make_response, mock_neoship
 LOGIN_OK = {'token': 'token-1', 'refresh_token': 'refresh-1'}
 
 
+def jwt(expires_in):
+    payload = base64.urlsafe_b64encode(json.dumps({'exp': int(time.time()) + expires_in}).encode()).decode()
+    return f'header.{payload.rstrip("=")}.signature'
+
+
 @tagged('post_install', '-at_install')
 class TestNeoshipClient(BaseCase):
     def setUp(self):
         super().setUp()
-        self.client = NeoshipClient('https://neoship.test/api/', 'user@example.com', 'secret-password')
-        self.addCleanup(self.client.close)
+        clear_token_cache()
+        self.addCleanup(clear_token_cache)
+        self.client = self._client()
+
+    def _client(self, password='secret-password'):
+        client = NeoshipClient('https://neoship.test/api/', 'user@example.com', password)
+        self.addCleanup(client.close)
+        return client
+
+    def test_valid_token_is_reused_by_the_next_client(self):
+        token = jwt(3600)
+        with mock_neoship(
+            make_response(json_data={'token': token}),
+            make_response(json_data={'id': 7}),
+            make_response(json_data={'id': 8}),
+        ) as calls:
+            self.client.request('GET', '/package/7')
+            self._client().request('GET', '/package/8')
+        self.assertEqual([call['url'].rsplit('/', 1)[1] for call in calls], ['login_check', '7', '8'])
+        self.assertEqual(calls[2]['headers']['Authorization'], f'Bearer {token}')
+
+    def test_token_is_not_reused_without_expiry_close_to_expiry_or_with_other_password(self):
+        for token, password in (('token-1', 'secret-password'), (jwt(30), 'secret-password'), (jwt(3600), 'other')):
+            clear_token_cache()
+            with (
+                self.subTest(token=token, password=password),
+                mock_neoship(
+                    make_response(json_data={'token': token}),
+                    make_response(json_data={'id': 7}),
+                    make_response(json_data={'token': 'token-2'}),
+                    make_response(json_data={'id': 8}),
+                ) as calls,
+            ):
+                self._client().request('GET', '/package/7')
+                self._client(password).request('GET', '/package/8')
+            self.assertEqual(calls[2]['url'], 'https://neoship.test/api/login_check')
+
+    def test_rejected_cached_token_logs_in_again(self):
+        with mock_neoship(make_response(json_data={'token': jwt(3600)}), make_response(json_data={'id': 7})):
+            self.client.request('GET', '/package/7')
+        with mock_neoship(
+            make_response(401, {'message': 'Invalid JWT Token'}),
+            make_response(json_data={'token': 'token-2'}),
+            make_response(json_data={'id': 8}),
+        ) as calls:
+            self.assertEqual(self._client().request('GET', '/package/8'), {'id': 8})
+        self.assertEqual(calls[2]['headers']['Authorization'], 'Bearer token-2')
 
     def test_login_posts_credentials_and_stores_token(self):
         with mock_neoship(make_response(json_data=LOGIN_OK)) as calls:

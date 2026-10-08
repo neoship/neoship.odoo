@@ -49,6 +49,8 @@ class TestClosure(NeoshipCommon):
                 'neoship_shipper_name': 'Slovenská pošta',
             }
         )
+        # Schedules already in the database would be run by the cron too.
+        cls.env['neoship.closure.schedule'].search([]).action_archive()
 
     def _schedule(self, carrier=None, **vals):
         return self.env['neoship.closure.schedule'].create(

@@ -7,6 +7,7 @@ import requests
 from odoo.tests import TransactionCase
 
 from odoo.addons.delivery_neoship import const
+from odoo.addons.delivery_neoship.models.neoship_api import clear_token_cache
 
 
 def make_response(status=200, json_data=None, content=b'', content_type='application/json'):
@@ -53,3 +54,7 @@ class NeoshipCommon(TransactionCase):
                 'neoship_password': 'secret-password',
             }
         )
+
+    def setUp(self):
+        super().setUp()
+        clear_token_cache()

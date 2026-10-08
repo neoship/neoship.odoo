@@ -25,6 +25,10 @@ from .neoship_api import (
 from .stock_picking import neoship_phone, neoship_same_phone
 
 
+def neoship_shipper_key(shipper_code):
+    return (shipper_code or '').lower()
+
+
 class DeliveryCarrier(models.Model):
     _inherit = 'delivery.carrier'
 
@@ -100,7 +104,7 @@ class DeliveryCarrier(models.Model):
         self.ensure_one()
         if self.delivery_type != const.DELIVERY_TYPE:
             return None
-        return const.CLOSURE_ACTIONS.get((self.neoship_shipper_code or '').lower())
+        return const.CLOSURE_ACTIONS.get(neoship_shipper_key(self.neoship_shipper_code))
 
     @api.constrains('neoship_shipper_code', 'neoship_carrier_type')
     def _check_neoship_carrier_type(self):
@@ -125,12 +129,13 @@ class DeliveryCarrier(models.Model):
                     )
                 ) from e
 
-    @api.model
     def _neoship_ships_pack_per_shipment(self):
-        return (self.neoship_shipper_code or '').lower() in const.SHIPPER_CODES_SHIPMENT_PER_PACK
+        self.ensure_one()
+        return neoship_shipper_key(self.neoship_shipper_code) in const.SHIPPER_CODES_SHIPMENT_PER_PACK
 
+    @api.model
     def _neoship_requires_carrier_type(self, shipper_code):
-        return (shipper_code or '').lower() in const.SHIPPER_CODES_WITH_CARRIER_TYPE
+        return neoship_shipper_key(shipper_code) in const.SHIPPER_CODES_WITH_CARRIER_TYPE
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -316,7 +321,7 @@ class DeliveryCarrier(models.Model):
     def _neoship_same_shipper_account(self):
         self.ensure_one()
         carrier = self.sudo()
-        shipper_code = (carrier.neoship_shipper_code or '').lower()
+        shipper_key = neoship_shipper_key(carrier.neoship_shipper_code)
         return (
             carrier.with_context(active_test=False)
             .search(
@@ -325,7 +330,7 @@ class DeliveryCarrier(models.Model):
                     ('neoship_username', '=', carrier.neoship_username),
                 ]
             )
-            .filtered(lambda other: (other.neoship_shipper_code or '').lower() == shipper_code)
+            .filtered(lambda other: neoship_shipper_key(other.neoship_shipper_code) == shipper_key)
         )
 
     def _neoship_closure_schedule_notification(self, schedules):
@@ -519,7 +524,7 @@ class DeliveryCarrier(models.Model):
 
     def _neoship_create(self, client, packages):
         try:
-            print_type = const.LABEL_PRINT_TYPES.get((self.neoship_shipper_code or '').lower())
+            print_type = const.LABEL_PRINT_TYPES.get(neoship_shipper_key(self.neoship_shipper_code))
             return client.create_packages(self.neoship_shipper_id, packages, print_type)
         except NeoshipTimeout as e:
             raise UserError(
