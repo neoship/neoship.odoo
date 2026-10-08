@@ -215,6 +215,16 @@ class TestOptionWizard(NeoshipCommon):
         self.assertEqual(packeta_cz.neoship_shipper_id, 3)
         self.assertFalse(self._schedules(packeta_cz), 'The closure covers the whole account at Packeta.')
 
+    def test_same_account_in_other_environment_gets_its_own_schedule(self):
+        self._choose_packeta('SK Packeta Home HD')
+        packeta_prod = self.carrier.copy({'name': 'Neoship Packeta Production'})
+        packeta_prod.toggle_prod_environment()
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS, packeta_prod)
+        action = self._select(wizard, 'Packeta', make_response(json_data=PACKETA_CARRIERS))
+        self._select(self._wizard(action), 'SK Packeta Home HD')
+        self.assertTrue(packeta_prod.prod_environment)
+        self.assertTrue(self._schedules(packeta_prod), 'The test API and production are different accounts.')
+
     def test_changing_carrier_archives_schedule(self):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
         self._select(wizard, 'SPS')

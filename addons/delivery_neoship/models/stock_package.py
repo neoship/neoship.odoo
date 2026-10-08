@@ -1,6 +1,6 @@
 from odoo import api, fields, models
 
-from .stock_picking import NEOSHIP_STATUS_GROUPS
+from .. import const
 
 
 class StockPackage(models.Model):
@@ -11,7 +11,7 @@ class StockPackage(models.Model):
     neoship_tracking_ref = fields.Char(string='Neoship Tracking Number', copy=False, readonly=True)
     neoship_status = fields.Char(copy=False, readonly=True)
     neoship_status_group = fields.Selection(
-        NEOSHIP_STATUS_GROUPS,
+        const.STATUS_GROUP_SELECTION,
         string='Neoship Delivery',
         copy=False,
         readonly=True,

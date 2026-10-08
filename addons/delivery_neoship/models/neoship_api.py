@@ -6,6 +6,8 @@ from http import HTTPStatus
 
 import requests
 
+from .neoship_responses import ClosureResult, PacketaCarrier, Shipment, Shipper
+
 PROD_URL = 'https://apiserver.neoship.sk/api'
 TEST_URL = 'https://t-we-nshp-api-01-app.azurewebsites.net/api'
 PROD_TRACKING_URL = 'https://aplikacia.neoship.sk/tracking/'
@@ -47,6 +49,10 @@ class NeoshipTimeout(NeoshipConnectionError):
     pass
 
 
+class NeoshipResponseError(NeoshipError):
+    pass
+
+
 class NeoshipClient:
     def __init__(self, base_url, username, password, timeout=30):
         self.base_url = base_url.rstrip('/')
@@ -67,14 +73,11 @@ class NeoshipClient:
     def login(self):
         self.session.headers.pop('Authorization', None)
         _tokens.pop(self._token_key(), None)
-        data = self._send(
-            'POST',
-            '/login_check',
-            json={
-                'username': self.username,
-                'password': self.password,
-            },
-        )
+        method, path = 'POST', '/login_check'
+        response = self._send(method, path, json={'username': self.username, 'password': self.password})
+        data = self._json(method, path, response)
+        if not isinstance(data, dict) or not data.get('token') or not isinstance(data['token'], str):
+            raise NeoshipResponseError(f'unexpected response to {method} {path}')
         token = data['token']
         self.session.headers['Authorization'] = f'Bearer {token}'
         expiry = token_expiry(token)
@@ -90,42 +93,68 @@ class NeoshipClient:
         return token if expiry - TOKEN_EXPIRY_MARGIN > time.time() else None
 
     def get_active_shippers(self):
-        return self.request('GET', '/shipper/active')
+        return self._fetch('GET', '/shipper/active', Shipper, many=True)
 
     def get_packeta_carriers(self):
-        return self.request('GET', '/carrier/available')
+        return self._fetch('GET', '/carrier/available', PacketaCarrier, many=True)
 
     def create_packages(self, shipper_id, packages, print_type=None):
         payload = {'packages': packages}
         if print_type:
             payload['options'] = {'print_type': print_type}
-        return self.request('POST', f'/package/bulk-create-and-print/{shipper_id}', json=payload)
+        path = f'/package/bulk-create-and-print/{shipper_id}'
+        shipments = self._fetch('POST', path, Shipment, many=True, json=payload)
+        if len(shipments) != len(packages):
+            raise NeoshipResponseError(
+                f'unexpected response to POST {path}: {len(shipments)} shipments for {len(packages)} packages'
+            )
+        return shipments
 
     def find_packages(self, reference_numbers):
         try:
-            return self.request('POST', '/package/referencenumber/', json={'reference_numbers': reference_numbers})
+            return self._fetch(
+                'POST', '/package/referencenumber/', Shipment, many=True, json={'reference_numbers': reference_numbers}
+            )
         except NeoshipNotFoundError:
             return []
 
     def get_package(self, package_id):
-        return self.request('GET', f'/package/{package_id}')
+        return self._fetch('GET', f'/package/{package_id}', Shipment)
 
     def get_label(self, package_id):
-        return self.request('GET', f'/package/{package_id}/label')
+        path = f'/package/{package_id}/label'
+        response = self._request('GET', path)
+        if not response.content or 'application/json' in response.headers.get('Content-Type', ''):
+            raise NeoshipResponseError(f'no file in response to GET {path}')
+        return response.content
 
     def delete_package(self, package_id):
-        return self.request('DELETE', f'/package/{package_id}')
+        self._request('DELETE', f'/package/{package_id}')
 
     def cancel_package(self, package_id):
-        return self.request('POST', f'/package/cancel/{package_id}')
+        self._request('POST', f'/package/cancel/{package_id}')
 
     def close_day(self, action, date=None):
         payload = {'action': action}
         if date:
             payload['date'] = date.isoformat()
-        return self.request('POST', '/package/bulk/', json=payload)
+        return self._fetch('POST', '/package/bulk/', ClosureResult, json=payload)
 
-    def request(self, method, path, **kwargs):
+    def _fetch(self, method, path, cls, many=False, **kwargs):
+        data = self._json(method, path, self._request(method, path, **kwargs))
+        try:
+            return [cls.from_json(item) for item in data] if many else cls.from_json(data)
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
+            raise NeoshipResponseError(f'unexpected response to {method} {path}') from e
+
+    @staticmethod
+    def _json(method, path, response):
+        try:
+            return response.json()
+        except ValueError as e:
+            raise NeoshipResponseError(f'invalid JSON in response to {method} {path}') from e
+
+    def _request(self, method, path, **kwargs):
         if 'Authorization' not in self.session.headers:
             token = self._cached_token()
             if token:
@@ -152,9 +181,7 @@ class NeoshipClient:
             raise NeoshipNotFoundError(self._error_message(response))
         if not response.ok:
             raise NeoshipError(self._error_message(response))
-        if 'application/json' in response.headers.get('Content-Type', ''):
-            return response.json()
-        return response.content
+        return response
 
     @classmethod
     def _error_message(cls, response):

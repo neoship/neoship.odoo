@@ -1,5 +1,5 @@
 import logging
-import re
+from dataclasses import dataclass
 from datetime import timedelta
 
 from odoo import api, fields, models
@@ -7,61 +7,38 @@ from odoo.exceptions import LockError, UserError
 from odoo.tools import float_round, ormcache, split_every
 
 from .. import const
+from ..tools import (
+    neoship_code,
+    neoship_combined_status_group,
+    neoship_parcel_reference,
+    neoship_phone,
+    neoship_status_group,
+)
 from .neoship_api import NeoshipConnectionError, NeoshipError, NeoshipNotFoundError
 
 _logger = logging.getLogger(__name__)
 
 
-NEOSHIP_STATUS_GROUPS = [
-    (const.STATUS_GROUP_NEW, 'New'),
-    (const.STATUS_GROUP_EXPORTED, 'Exported'),
-    (const.STATUS_GROUP_TRANSIT, 'In Transit'),
-    (const.STATUS_GROUP_DELIVERED, 'Delivered'),
-    (const.STATUS_GROUP_NOT_DELIVERED, 'Not Delivered'),
-    (const.STATUS_GROUP_RETURNED, 'Returned'),
-    (const.STATUS_GROUP_CANCEL, 'Cancelled'),
-]
+@dataclass
+class NeoshipTrackingRun:
+    on_batch: object = None
+    checked: int = 0
+    changed: int = 0
+    failed: int = 0
+    unreachable: bool = False
+    out_of_time: bool = False
 
+    @property
+    def stopped(self):
+        return self.unreachable or self.out_of_time
 
-def neoship_code(value):
-    return re.sub(const.REFERENCE_INVALID_CHARS, '-', value or '').strip('-')[: const.REFERENCE_MAX_LENGTH]
-
-
-def neoship_phone(value):
-    return re.sub(r'\s+', '', value or '')
-
-
-def neoship_same_phone(old, new):
-    # Neoship may store the number with a country prefix it added, e.g. +48 for Polish Packeta carriers.
-    return old == new or bool(old and new and (old.endswith(new) or new.endswith(old)))
-
-
-def neoship_status_group(status):
-    group = status.get('group')
-    return group if group in const.STATUS_GROUPS else False
-
-
-def neoship_combined_status_group(groups):
-    active = [group for group in groups if group != const.STATUS_GROUP_CANCEL]
-    if not active:
-        return const.STATUS_GROUP_CANCEL
-    if const.STATUS_GROUP_NOT_DELIVERED in active:
-        return const.STATUS_GROUP_NOT_DELIVERED
-    if not all(active):
-        return False
-    pending = [group for group in active if group not in const.STATUS_GROUPS_FINAL]
-    if pending:
-        return min(pending, key=const.STATUS_GROUPS.index)
-    if const.STATUS_GROUP_RETURNED in active:
-        return const.STATUS_GROUP_RETURNED
-    return const.STATUS_GROUP_DELIVERED
-
-
-def neoship_parcel_reference(reference, sequence):
-    if sequence == 1:
-        return reference
-    suffix = f'-{sequence}'
-    return reference[: const.REFERENCE_MAX_LENGTH - len(suffix)] + suffix
+    def done(self, pickings, changed=0, failed=0):
+        self.checked += len(pickings)
+        self.changed += changed
+        self.failed += failed
+        # ir.cron._commit_progress returns the time left for the job.
+        if self.on_batch and not self.on_batch(len(pickings)):
+            self.out_of_time = True
 
 
 class StockPicking(models.Model):
@@ -73,7 +50,7 @@ class StockPicking(models.Model):
     neoship_status = fields.Char(copy=False, readonly=True)
     neoship_status_id = fields.Integer(string='Neoship Status ID', copy=False, readonly=True)
     neoship_status_group = fields.Selection(
-        NEOSHIP_STATUS_GROUPS,
+        const.STATUS_GROUP_SELECTION,
         string='Neoship Delivery',
         copy=False,
         readonly=True,
@@ -104,6 +81,7 @@ class StockPicking(models.Model):
         readonly=True,
         help='Each pack was sent as its own Neoship shipment.',
     )
+    neoship_label_id = fields.Many2one('ir.attachment', copy=False, readonly=True)
 
     _neoship_reference_uniq = models.Constraint(
         'UNIQUE(neoship_reference)',
@@ -218,7 +196,7 @@ class StockPicking(models.Model):
     def _neoship_ships_pack_per_shipment(self, packs):
         # Neoship creates extra parcels from count_of_packages only for home delivery and not for Packeta.
         return len(packs) > 1 and (
-            self.carrier_id._neoship_ships_pack_per_shipment() or bool(self.sale_id.neoship_parcelshop_id)
+            self.carrier_id._neoship_ignores_package_count() or bool(self.sale_id.neoship_parcelshop_id)
         )
 
     def _neoship_set_weight(self, package, weight, parcel_name=None):
@@ -374,13 +352,9 @@ class StockPicking(models.Model):
     def _neoship_attach_label(self, client, tracking_number):
         self.ensure_one()
         label = client.get_label(self.neoship_package_id)
-        if not isinstance(label, bytes):
-            raise NeoshipError(f'Unexpected label response for package {self.neoship_package_id}')
-        name = self._neoship_label_name(tracking_number)
-        self.message_post(body=self.env._('Neoship shipping label'), attachments=[(name, label)])
-
-    def _neoship_label_name(self, tracking_number):
-        return f'{self.carrier_id._get_delivery_label_prefix()}-{(tracking_number or "").replace(",", "-")}.pdf'
+        name = f'{self.carrier_id._get_delivery_label_prefix()}-{(tracking_number or "").replace(",", "-")}.pdf'
+        message = self.message_post(body=self.env._('Neoship shipping label'), attachments=[(name, label)])
+        self.neoship_label_id = message.attachment_ids[:1]
 
     def _neoship_sent_packs(self):
         self.ensure_one()
@@ -402,9 +376,9 @@ class StockPicking(models.Model):
         if len(parcels) == len(packs):
             values = [
                 {
-                    'neoship_package_id': parcel['id'],
-                    'neoship_reference': parcel.get('reference_number'),
-                    'neoship_tracking_ref': parcel.get('tracking_number'),
+                    'neoship_package_id': parcel.id,
+                    'neoship_reference': parcel.reference_number,
+                    'neoship_tracking_ref': parcel.tracking_number,
                 }
                 for parcel in parcels
             ]
@@ -413,25 +387,11 @@ class StockPicking(models.Model):
         for pack, pack_values in zip(packs, values, strict=True):
             pack.write({**pack._neoship_clear_values(), **pack_values})
 
-    def _neoship_label(self):
-        self.ensure_one()
-        return self.env['ir.attachment'].search(
-            [
-                ('res_model', '=', self._name),
-                ('res_id', '=', self.id),
-                ('name', '=', self._neoship_label_name(self.carrier_tracking_ref)),
-            ],
-            order='id desc',
-            limit=1,
-        )
-
     def action_neoship_open_label(self):
         self.ensure_one()
-        label = self._neoship_label()
-        if not label:
+        if not self.neoship_label_id:
             self.action_neoship_download_label()
-            label = self._neoship_label()
-        return {'type': 'ir.actions.act_url', 'url': f'/web/content/{label.id}', 'target': 'new'}
+        return {'type': 'ir.actions.act_url', 'url': f'/web/content/{self.neoship_label_id.id}', 'target': 'new'}
 
     def action_neoship_download_label(self):
         self.ensure_one()
@@ -494,17 +454,13 @@ class StockPicking(models.Model):
             order='neoship_last_sync ASC NULLS FIRST, id',
             limit=const.TRACKING_LIMIT_PER_RUN,
         )
-        on_batch = None
-        if self.env.context.get('cron_id'):
-            cron = self.env['ir.cron']
+        cron = self.env['ir.cron'] if self.env.context.get('cron_id') else None
+        if cron is not None:
             cron._commit_progress(remaining=len(pickings))
-            on_batch = cron._commit_progress
-        stats = pickings._neoship_update_tracking(on_batch)
-        if stats['unreachable'] and on_batch:
+        run = pickings._neoship_update_tracking(cron._commit_progress if cron is not None else None)
+        if cron is not None and run.unreachable:
             cron._commit_progress(remaining=0)
-        _logger.info(
-            'Neoship tracking: %s checked, %s changed, %s failed', stats['checked'], stats['changed'], stats['failed']
-        )
+        _logger.info('Neoship tracking: %s checked, %s changed, %s failed', run.checked, run.changed, run.failed)
 
     @api.model
     def _neoship_tracking_domain(self, cutoff):
@@ -526,92 +482,86 @@ class StockPicking(models.Model):
         self._neoship_update_tracking()
 
     def _neoship_update_tracking(self, on_batch=None):
-        stats = {'checked': 0, 'changed': 0, 'failed': 0, 'unreachable': False}
-        synced = self.browse()
-        time_left = float('inf')
-
-        def done(pickings, changed=0, failed=0):
-            nonlocal synced, time_left
-            synced |= pickings
-            stats['checked'] += len(pickings)
-            stats['changed'] += changed
-            stats['failed'] += failed
-            if on_batch:
-                time_left = on_batch(len(pickings))
-
+        run = NeoshipTrackingRun(on_batch)
         for (carrier, prod_environment), pickings in self.grouped(
             lambda picking: (picking.carrier_id, picking.neoship_prod_environment)
         ).items():
-            if not time_left or stats['unreachable']:
+            if run.stopped:
                 break
-            environment = const.ENVIRONMENT_PRODUCTION if prod_environment else const.ENVIRONMENT_TEST
-            try:
-                with carrier._neoship_client(prod_environment) as client:
-                    client.login()
-                    for batch in split_every(const.TRACKING_BATCH_SIZE, pickings.ids, self.browse):
-                        try:
-                            changed, failed = batch._neoship_sync_batch(client)
-                        except NeoshipConnectionError:
-                            raise
-                        except NeoshipError as e:
-                            _logger.warning(
-                                'Neoship tracking failed for %s shipments of delivery method %s (%s): %s',
-                                len(batch),
-                                carrier.name,
-                                environment,
-                                e,
-                            )
-                            batch._neoship_sync_failed(carrier._neoship_user_error(e).args[0])
-                            changed, failed = 0, len(batch)
-                        done(batch, changed, failed)
-                        if not time_left:
-                            break
-            except (NeoshipError, UserError) as e:
-                _logger.warning('Neoship tracking failed for delivery method %s (%s): %s', carrier.name, environment, e)
-                stats['unreachable'] = isinstance(e, NeoshipConnectionError)
-                message = carrier._neoship_user_error(e).args[0] if isinstance(e, NeoshipError) else e.args[0]
-                rest = pickings - synced
-                rest._neoship_sync_failed(message)
-                done(rest, failed=len(rest))
-        return stats
+            pickings._neoship_update_account_tracking(carrier, prod_environment, run)
+        return run
 
-    def _neoship_sync_batch(self, client):
+    def _neoship_update_account_tracking(self, carrier, prod_environment, run):
+        environment = const.ENVIRONMENT_PRODUCTION if prod_environment else const.ENVIRONMENT_TEST
+        synced = self.browse()
+        try:
+            with carrier._neoship_client(prod_environment) as client:
+                client.login()
+                for batch in split_every(const.TRACKING_BATCH_SIZE, self.ids, self.browse):
+                    changed, failed = batch._neoship_sync_batch(client, carrier, environment)
+                    synced |= batch
+                    run.done(batch, changed, failed)
+                    if run.stopped:
+                        break
+        except (NeoshipError, UserError) as e:
+            _logger.warning('Neoship tracking failed for delivery method %s (%s): %s', carrier.name, environment, e)
+            run.unreachable = isinstance(e, NeoshipConnectionError)
+            rest = self - synced
+            rest._neoship_sync_failed(carrier._neoship_error_message(e) if isinstance(e, NeoshipError) else str(e))
+            run.done(rest, failed=len(rest))
+
+    def _neoship_sync_batch(self, client, carrier, environment):
+        try:
+            by_id = self._neoship_find_shipments(client)
+        except NeoshipConnectionError:
+            raise
+        except NeoshipError as e:
+            _logger.warning(
+                'Neoship tracking failed for %s shipments of delivery method %s (%s): %s',
+                len(self),
+                carrier.name,
+                environment,
+                e,
+            )
+            self._neoship_sync_failed(carrier._neoship_error_message(e))
+            return 0, len(self)
+        changed = failed = 0
+        for picking in self:
+            shipment = by_id.get(picking.neoship_package_id) or picking._neoship_read_shipment(client)
+            if shipment:
+                changed += picking._neoship_apply_status(shipment, by_id)
+            else:
+                failed += 1
+        return changed, failed
+
+    def _neoship_find_shipments(self, client):
         references = [reference for picking in self for reference in picking._neoship_references()]
         by_id = {}
         for batch in split_every(const.TRACKING_BATCH_SIZE, references, list):
-            by_id.update({shipment['id']: shipment for shipment in client.find_packages(batch)})
-        changed = failed = 0
-        for picking in self:
-            shipment = by_id.get(picking.neoship_package_id)
-            if shipment is None:
-                try:
-                    shipment = client.get_package(picking.neoship_package_id)
-                except NeoshipConnectionError:
-                    raise
-                except NeoshipNotFoundError:
-                    _logger.warning(
-                        'Neoship shipment %s (package %s, transfer %s) was not found',
-                        picking.carrier_tracking_ref,
-                        picking.neoship_package_id,
-                        picking.name,
-                    )
-                    picking._neoship_sync_failed(
-                        self.env._('Neoship shipment %s was not found.', picking.carrier_tracking_ref)
-                    )
-                    failed += 1
-                    continue
-                except NeoshipError as e:
-                    _logger.warning(
-                        'Neoship tracking failed for shipment %s (transfer %s): %s',
-                        picking.carrier_tracking_ref,
-                        picking.name,
-                        e,
-                    )
-                    picking._neoship_sync_failed(picking.carrier_id._neoship_user_error(e).args[0])
-                    failed += 1
-                    continue
-            changed += picking._neoship_apply_status(shipment, by_id)
-        return changed, failed
+            by_id.update({shipment.id: shipment for shipment in client.find_packages(batch)})
+        return by_id
+
+    def _neoship_read_shipment(self, client):
+        self.ensure_one()
+        try:
+            return client.get_package(self.neoship_package_id)
+        except NeoshipConnectionError:
+            raise
+        except NeoshipNotFoundError:
+            _logger.warning(
+                'Neoship shipment %s (package %s, transfer %s) was not found',
+                self.carrier_tracking_ref,
+                self.neoship_package_id,
+                self.name,
+            )
+            message = self.env._('Neoship shipment %s was not found.', self.carrier_tracking_ref)
+        except NeoshipError as e:
+            _logger.warning(
+                'Neoship tracking failed for shipment %s (transfer %s): %s', self.carrier_tracking_ref, self.name, e
+            )
+            message = self.carrier_id._neoship_error_message(e)
+        self._neoship_sync_failed(message)
+        return None
 
     def _neoship_references(self):
         self.ensure_one()
@@ -619,26 +569,26 @@ class StockPicking(models.Model):
 
     def _neoship_apply_status(self, shipment, shipments_by_id=None):
         self.ensure_one()
-        shipments_by_id = {**(shipments_by_id or {}), shipment['id']: shipment}
+        shipments_by_id = {**(shipments_by_id or {}), shipment.id: shipment}
         packs = self._neoship_sent_packs()
         for pack in packs:
             pack_shipment = shipments_by_id.get(pack.neoship_package_id)
             if pack_shipment:
-                pack_status = pack_shipment.get('last_status') or {}
+                pack_status = pack_shipment.last_status
                 pack.write(
                     {
-                        'neoship_status': pack_status.get('name') or False,
+                        'neoship_status': (pack_status and pack_status.name) or False,
                         'neoship_status_group': neoship_status_group(pack_status),
                     }
                 )
-        status = shipment.get('last_status') or {}
-        status_id = status.get('id') or 0
+        status = shipment.last_status
+        status_id = status.id if status else 0
         if len(packs) > 1:
             group = neoship_combined_status_group(packs.mapped('neoship_status_group'))
             name = '; '.join(f'{pack.neoship_tracking_ref}: {pack.neoship_status or "-"}' for pack in packs)
         else:
             group = neoship_status_group(status)
-            name = status.get('name') or False
+            name = (status and status.name) or False
         vals = {
             'neoship_status': name,
             'neoship_status_group': group,

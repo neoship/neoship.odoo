@@ -235,6 +235,18 @@ class TestTracking(NeoshipCommon):
         self.assertIn(f'{picking.carrier_tracking_ref} was not found', picking.neoship_sync_error)
         self.assertTrue(picking.neoship_last_sync)
 
+    def test_unreadable_response_is_a_tracking_error_and_ends_the_run_normally(self):
+        picking = self._shipped()
+        with self.assertLogs(LOGGER, 'INFO') as logs:
+            self._sync(
+                make_response(json_data=LOGIN_OK),
+                make_response(content=b'<html>Maintenance</html>', content_type='text/html'),
+            )
+        self.assertIn('invalid JSON in response to POST /package/referencenumber/', logs.output[0])
+        self.assertIn('1 checked, 0 changed, 1 failed', logs.output[-1])
+        self.assertIn('cannot be processed', picking.neoship_sync_error)
+        self.assertTrue(picking.neoship_last_sync)
+
     def test_shipment_cancelled_in_neoship_is_no_longer_tracked(self):
         picking = self._shipped()
         self._sync(
@@ -303,11 +315,11 @@ class TestTracking(NeoshipCommon):
             patch.object(const, 'TRACKING_BATCH_SIZE', 1),
             mock_neoship(make_response(json_data=LOGIN_OK), self._found(shipment(first, STATUS_TRANSIT))) as calls,
         ):
-            stats = (first | second)._neoship_update_tracking(on_batch=lambda processed: 0)
+            run = (first | second)._neoship_update_tracking(on_batch=lambda processed: 0)
         self.assertEqual(len(calls), 2)
         self.assertEqual(first.neoship_status_group, const.STATUS_GROUP_TRANSIT)
         self.assertFalse(second.neoship_last_sync)
-        self.assertEqual(stats['checked'], 1)
+        self.assertEqual(run.checked, 1)
 
     def test_cron_skips_shipments_synced_recently(self):
         recent, due = self._shipped(), self._shipped()

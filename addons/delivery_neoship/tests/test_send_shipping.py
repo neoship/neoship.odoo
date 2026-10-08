@@ -15,7 +15,7 @@ from .common import NeoshipCommon, make_response, mock_neoship
 LOGIN_OK = {'token': 'token-1'}
 PDF = b'%PDF-1.5 label'
 NOT_FOUND = make_response(404, {})
-PACKETA_SHIPPER = {'id': 3, 'name': 'Packeta'}
+PACKETA_SHIPPER = {'id': 3, 'name': 'Packeta', 'shortcut': 'Packeta'}
 
 
 def created(package_id=501, tracking_number='TRK1', reference='REF', **values):
@@ -54,7 +54,14 @@ def detail_with_copies(picking, package_id=501, *copies):
 
 def found(picking, **values):
     carrier = picking.carrier_id
-    values.setdefault('shipper', {'id': carrier.neoship_shipper_id, 'name': carrier.neoship_shipper_name})
+    values.setdefault(
+        'shipper',
+        {
+            'id': carrier.neoship_shipper_id,
+            'name': carrier.neoship_shipper_name,
+            'shortcut': carrier.neoship_shipper_code,
+        },
+    )
     return make_response(json_data=[existing_shipment(picking._neoship_reference(), **values)])
 
 
@@ -63,7 +70,7 @@ def existing_shipment(reference, package_id=777, tracking_number='TRK-OLD', **va
         'id': package_id,
         'reference_number': reference,
         'tracking_number': tracking_number,
-        'shipper': {'id': 2, 'name': 'SPS'},
+        'shipper': {'id': 2, 'name': 'SPS', 'shortcut': 'SPS'},
         'receiver_name': 'Jan Testovaci',
         'receiver_street': 'Hlavna 1',
         'receiver_city': 'Kosice',
@@ -297,7 +304,9 @@ class TestSendShipping(NeoshipCommon):
 
     def test_existing_shipment_of_another_carrier_is_replaced(self):
         picking = self._picking()
-        self._assert_replaced(picking, found(picking, shipper={'id': 5, 'name': 'GLS'}), 'shipper: GLS → SPS')
+        self._assert_replaced(
+            picking, found(picking, shipper={'id': 5, 'name': 'GLS', 'shortcut': 'GLS'}), 'shipper: GLS → SPS'
+        )
 
     def test_existing_shipment_with_different_contact_is_replaced(self):
         picking = self._picking()
@@ -384,6 +393,19 @@ class TestSendShipping(NeoshipCommon):
                 [('res_model', '=', 'stock.picking'), ('res_id', '=', picking.id), ('name', 'like', 'LabelShipping')]
             )
         )
+
+    def test_unreadable_create_response_is_reported(self):
+        picking = self._picking()
+        html = make_response(content=b'<html>Maintenance</html>', content_type='text/html')
+        with self.assertRaisesRegex(UserError, 'cannot be processed: invalid JSON in response to POST'):
+            self._send(picking, NOT_FOUND, html)
+
+    def test_label_that_is_not_a_file_is_reported(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), make_response(json_data={}))
+        self.assertEqual(picking.neoship_package_id, 501)
+        self.assertFalse(picking.neoship_label_id)
+        self.assertIn('no file in response to GET /package/501/label', picking.neoship_error)
 
     def test_shipment_is_sent_to_production_environment(self):
         self.carrier.prod_environment = True
@@ -731,18 +753,45 @@ class TestSendShipping(NeoshipCommon):
     def test_label_opens_without_calling_neoship(self):
         picking = self._picking()
         self._send(picking, NOT_FOUND, created(), label())
-        attachment = picking._neoship_label()
+        attachment = picking.neoship_label_id
         with mock_neoship() as calls:
             action = picking.action_neoship_open_label()
         self.assertFalse(calls)
         self.assertEqual(action['url'], f'/web/content/{attachment.id}')
+
+    def test_label_opens_after_tracking_number_and_carrier_name_change(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        attachment = picking.neoship_label_id
+        picking.carrier_tracking_ref = 'TRK-CHANGED'
+        self.carrier.name = 'Neoship Renamed'
+        with mock_neoship() as calls:
+            action = picking.action_neoship_open_label()
+        self.assertFalse(calls)
+        self.assertEqual(action['url'], f'/web/content/{attachment.id}')
+
+    def test_deleted_label_is_downloaded_again(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        picking.neoship_label_id.unlink()
+        with mock_neoship(make_response(json_data=LOGIN_OK), label()):
+            action = picking.action_neoship_open_label()
+        self.assertEqual(picking.neoship_label_id.raw, PDF)
+        self.assertEqual(action['url'], f'/web/content/{picking.neoship_label_id.id}')
+
+    def test_cancelled_shipment_has_no_label(self):
+        picking = self._picking()
+        self._send(picking, NOT_FOUND, created(), label())
+        with mock_neoship(make_response(json_data=LOGIN_OK), make_response(json_data={})):
+            picking.cancel_shipment()
+        self.assertFalse(picking.neoship_label_id)
 
     def test_missing_label_is_downloaded_before_opening(self):
         picking = self._picking()
         self._send(picking, NOT_FOUND, created(), make_response(500, {'message': 'Storage down'}))
         with mock_neoship(make_response(json_data=LOGIN_OK), label()):
             action = picking.action_neoship_open_label()
-        attachment = picking._neoship_label()
+        attachment = picking.neoship_label_id
         self.assertEqual(attachment.raw, PDF)
         self.assertEqual(action['url'], f'/web/content/{attachment.id}')
 
@@ -755,7 +804,7 @@ class TestSendShipping(NeoshipCommon):
         self.assertEqual(order.neoship_shipment_count, 1)
         shipment = self.env['stock.picking'].with_user(user).search(order.action_view_neoship_shipments()['domain'])
         action = shipment.action_neoship_open_label()
-        self.assertEqual(action['url'], f'/web/content/{picking._neoship_label().id}')
+        self.assertEqual(action['url'], f'/web/content/{picking.neoship_label_id.id}')
 
     def test_validation_by_warehouse_user_sends_shipment(self):
         self.warehouse.out_type_id.print_label = True
@@ -805,7 +854,7 @@ class TestSendShipping(NeoshipCommon):
         self.assertEqual(packs.mapped('neoship_package_id'), [501, 502])
         self.assertEqual(packs.mapped('neoship_reference'), [reference, f'{reference}-2'])
         self.assertEqual(packs.mapped('neoship_tracking_ref'), ['TRK1', 'TRK2'])
-        self.assertEqual(picking._neoship_label().name, 'LabelShipping-neoship-TRK1-TRK2.pdf')
+        self.assertEqual(picking.neoship_label_id.name, 'LabelShipping-neoship-TRK1-TRK2.pdf')
 
     def test_pickup_point_with_several_packs_sends_shipment_per_pack(self):
         self.order.neoship_parcelshop_id = 'PS-1234'

@@ -47,19 +47,10 @@ class NeoshipClosure(models.Model):
 
     @api.model
     def _neoship_result_values(self, result, shipper_code, closure_date):
-        if not isinstance(result, dict):
-            return {
-                'state': const.CLOSURE_STATE_FAILED,
-                'message': self.env._('Neoship returned an unexpected closure response.'),
-            }
-        errors = result.get('errors') or ''
-        errors = '; '.join(str(error) for error in errors) if isinstance(errors, list) else str(errors)
-        package_ids = result.get('package_ids') or []
-        values = {'message': errors or False}
-        protocol = result.get('protocol') or ''
-        if protocol:
+        values = {'message': result.errors or False}
+        if result.protocol:
             try:
-                pdf = base64.b64decode(protocol)
+                pdf = base64.b64decode(result.protocol)
             except (binascii.Error, ValueError):
                 return {
                     **values,
@@ -72,12 +63,12 @@ class NeoshipClosure(models.Model):
                     'protocol_filename': f'{shipper_code}-protocol-{closure_date}.pdf',
                 }
             )
-        if protocol or package_ids:
+        if result.protocol or result.package_ids:
             return {**values, 'state': const.CLOSURE_STATE_DONE}
-        if errors.strip() == const.CLOSURE_NO_PACKAGES:
+        if result.errors.strip() == const.CLOSURE_NO_PACKAGES:
             return {**values, 'state': const.CLOSURE_STATE_EMPTY, 'message': False}
         return {
             **values,
             'state': const.CLOSURE_STATE_FAILED,
-            'message': errors or self.env._('Neoship closed nothing and returned no protocol.'),
+            'message': result.errors or self.env._('Neoship closed nothing and returned no protocol.'),
         }

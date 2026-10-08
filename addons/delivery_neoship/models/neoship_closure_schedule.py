@@ -9,7 +9,7 @@ from odoo.exceptions import UserError, ValidationError
 from odoo.addons.base.models.res_partner import _tz_get
 
 from .. import const
-from .delivery_carrier import neoship_shipper_key
+from ..tools import neoship_shipper_key
 from .neoship_api import NeoshipError
 
 _logger = logging.getLogger(__name__)
@@ -95,12 +95,12 @@ class NeoshipClosureSchedule(models.Model):
     def _cron_run_closures(self):
         schedules = self.search([('next_run', '<=', fields.Datetime.now())])
         cron = self.env['ir.cron'] if self.env.context.get('cron_id') else None
-        if cron:
+        if cron is not None:
             cron._commit_progress(remaining=len(schedules))
         for schedule in schedules:
             schedule._run_scheduled()
             schedule._schedule_next_run()
-            if cron:
+            if cron is not None:
                 cron._commit_progress(1)
 
     def _next_call(self):
@@ -202,7 +202,7 @@ class NeoshipClosureSchedule(models.Model):
                 result = client.close_day(action, date_from)
         except NeoshipError as e:
             _logger.warning('Neoship closure failed for delivery method %s: %s', carrier.name, e)
-            return {'state': const.CLOSURE_STATE_FAILED, 'message': carrier._neoship_user_error(e).args[0]}
+            return {'state': const.CLOSURE_STATE_FAILED, 'message': carrier._neoship_error_message(e)}
         except UserError as e:
-            return {'state': const.CLOSURE_STATE_FAILED, 'message': e.args[0]}
+            return {'state': const.CLOSURE_STATE_FAILED, 'message': str(e)}
         return self.env['neoship.closure']._neoship_result_values(result, carrier.neoship_shipper_code, closure_date)

@@ -1,5 +1,6 @@
 import base64
 from datetime import date, datetime, timedelta
+from unittest.mock import patch
 
 import requests
 from freezegun import freeze_time
@@ -107,6 +108,22 @@ class TestClosure(NeoshipCommon):
         self.assertEqual(due.next_run, datetime(2026, 10, 8, 13, 30))
         self.assertEqual(later.next_run, datetime(2026, 10, 7, 15, 0))
 
+    def test_cron_commits_after_each_closure(self):
+        with freeze_time(NOW):
+            first = self._schedule(closure_time=15.5)
+            second = self._schedule(self.sk_posta, closure_time=15.5)
+        (first | second).next_run = NOW
+        cron = self.env.ref(const.CLOSURE_CRON_XMLID)
+        protocol = closure_response(protocol=base64.b64encode(PDF).decode())
+        with (
+            freeze_time(NOW),
+            patch.object(type(self.env['ir.cron']), '_commit_progress', autospec=True) as progress,
+            mock_neoship(make_response(json_data=LOGIN_OK), protocol, make_response(json_data=LOGIN_OK), protocol),
+        ):
+            self.env['neoship.closure.schedule'].with_context(cron_id=cron.id)._cron_run_closures()
+        self.assertEqual(progress.call_args_list[0].kwargs, {'remaining': 2})
+        self.assertEqual([call.args[1:] for call in progress.call_args_list[1:]], [(1,), (1,)])
+
     def test_schedule_keeps_local_time_across_dst_change(self):
         # Europe/Bratislava leaves summer time on Sunday 2026-10-25.
         friday, saturday = datetime(2026, 10, 23, 13, 0), datetime(2026, 10, 24, 13, 0)
@@ -173,6 +190,11 @@ class TestClosure(NeoshipCommon):
         self.assertEqual(closure.state, const.CLOSURE_STATE_FAILED)
         self.assertIn('Internal error', closure.message)
         self.assertNotIn('secret-password', closure.message)
+
+    def test_unexpected_response_is_recorded(self):
+        _calls, closure = self._close(self._schedule(), make_response(json_data=['done']))
+        self.assertEqual(closure.state, const.CLOSURE_STATE_FAILED)
+        self.assertIn('cannot be processed: unexpected response to POST /package/bulk/', closure.message)
 
     def test_timeout_is_recorded(self):
         _calls, closure = self._close(self._schedule(), requests.exceptions.ReadTimeout())
