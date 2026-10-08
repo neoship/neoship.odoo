@@ -3,7 +3,8 @@ import json
 import psycopg2
 import requests
 
-from odoo.exceptions import UserError
+from odoo import Command
+from odoo.exceptions import UserError, ValidationError
 from odoo.tests import Form, tagged
 from odoo.tools import mute_logger
 
@@ -88,6 +89,33 @@ class TestDeliveryCarrier(NeoshipCommon):
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {partner.id})]"
         self.assertTrue(self.carrier._neoship_is_cod(cod_order))
         self.assertFalse(self.carrier._neoship_is_cod(prepaid_order))
+
+    def test_cod_domain_on_restricted_field_is_the_same_for_warehouse_users(self):
+        warehouse_user = self.env['res.users'].create(
+            {
+                'name': 'Warehouse Worker',
+                'login': 'neoship_warehouse_worker',
+                'group_ids': [Command.set([self.env.ref('stock.group_stock_user').id])],
+            }
+        )
+        order = self.env['sale.order'].create({'partner_id': self.env['res.partner'].create({'name': 'Buyer'}).id})
+        self.carrier.neoship_cod_domain = "[('transaction_ids', '=', False)]"
+        self.assertTrue(self.carrier._neoship_is_cod(order))
+        self.assertTrue(self.carrier.with_user(warehouse_user)._neoship_is_cod(order.with_user(warehouse_user)))
+
+    def test_cod_domain_can_use_evaluation_context(self):
+        order = self.env['sale.order'].create(
+            {'partner_id': self.env['res.partner'].create({'name': 'Buyer'}).id, 'user_id': self.env.uid}
+        )
+        self.carrier.neoship_cod_domain = (
+            "[('user_id', '=', uid), ('date_order', '>=', (context_today() - relativedelta(days=1)).isoformat())]"
+        )
+        self.assertTrue(self.carrier._neoship_is_cod(order))
+
+    def test_invalid_cod_domain_is_rejected_on_save(self):
+        for domain in ("[('partner_id.nmae', '=', 'X')]", "[('partner_id', '=', unknown)]", '42'):
+            with self.subTest(domain=domain), self.assertRaisesRegex(ValidationError, 'cash on delivery filter'):
+                self.carrier.neoship_cod_domain = domain
 
     def _picking(self, tracking_ref, prod_environment=False):
         return self.env['stock.picking'].new(

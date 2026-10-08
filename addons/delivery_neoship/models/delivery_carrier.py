@@ -1,10 +1,13 @@
 import json
 from urllib.parse import quote
 
+from dateutil.relativedelta import relativedelta
+
 from odoo import Command, api, fields, models
 from odoo.exceptions import UserError, ValidationError
+from odoo.fields import Domain
 from odoo.tools import float_round
-from odoo.tools.safe_eval import safe_eval
+from odoo.tools.safe_eval import datetime, safe_eval
 
 from .. import const
 from .neoship_api import (
@@ -107,6 +110,21 @@ class DeliveryCarrier(models.Model):
                     self.env._('Choose the Packeta home delivery carrier on delivery method %s.', carrier.name)
                 )
 
+    @api.constrains('neoship_cod_domain')
+    def _check_neoship_cod_domain(self):
+        orders = self.env['sale.order'].sudo()
+        for carrier in self.filtered('neoship_cod_domain'):
+            try:
+                Domain(safe_eval(carrier.neoship_cod_domain, carrier._neoship_cod_eval_context())).validate(orders)
+            except (ValueError, TypeError) as e:
+                raise ValidationError(
+                    self.env._(
+                        'The cash on delivery filter on delivery method %(method)s is invalid: %(error)s',
+                        method=carrier.name,
+                        error=e,
+                    )
+                ) from e
+
     @api.model
     def _neoship_ships_pack_per_shipment(self):
         return (self.neoship_shipper_code or '').lower() in const.SHIPPER_CODES_SHIPMENT_PER_PACK
@@ -165,8 +183,18 @@ class DeliveryCarrier(models.Model):
         self.ensure_one()
         if not self.neoship_cod_domain or not order:
             return False
-        domain = safe_eval(self.neoship_cod_domain)
-        return bool(order.filtered_domain(domain))
+        domain = safe_eval(self.neoship_cod_domain, self._neoship_cod_eval_context())
+        # Warehouse users cannot read every sale.order field (e.g. transaction_ids); the result must not depend on them.
+        return bool(order.sudo().filtered_domain(domain))
+
+    def _neoship_cod_eval_context(self):
+        return {
+            'uid': self.env.uid,
+            'user': self.env.user,
+            'context_today': lambda: fields.Date.context_today(self),
+            'datetime': datetime,
+            'relativedelta': relativedelta,
+        }
 
     def _neoship_user_error(self, error):
         if isinstance(error, NeoshipTimeout):
