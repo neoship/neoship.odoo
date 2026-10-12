@@ -1,6 +1,5 @@
 import json
 from dataclasses import asdict
-from urllib.parse import quote
 
 from dateutil.relativedelta import relativedelta
 
@@ -13,9 +12,7 @@ from odoo.tools.safe_eval import datetime, safe_eval
 from .. import const
 from ..tools import neoship_phone, neoship_same_phone, neoship_shipper_key
 from .neoship_api import (
-    PROD_TRACKING_URL,
     PROD_URL,
-    TEST_TRACKING_URL,
     TEST_URL,
     NeoshipAuthError,
     NeoshipClient,
@@ -403,25 +400,12 @@ class DeliveryCarrier(models.Model):
             shipments = self._neoship_find_or_create(client, picking, packages)
             parcels = self._neoship_parcels(client, shipments, main.get('count_of_packages', 1))
             tracking_number = ','.join(parcel.tracking_number for parcel in parcels if parcel.tracking_number)
-            picking.write(
-                {
-                    'neoship_package_id': shipments[0].id,
-                    'neoship_prod_environment': self.prod_environment,
-                    'neoship_reference': main['reference_number'],
-                    'neoship_shipment_per_pack': len(shipments) > 1,
-                    'neoship_cod_amount': main.get('cod_price', 0.0),
-                    'neoship_cancel_refused': False,
-                    'neoship_error': False,
-                    'neoship_label_id': False,
-                    **picking._neoship_tracking_reset_values(),
-                }
-            )
-            picking._neoship_store_parcels(parcels)
+            picking._neoship_store_parcels(packages, parcels, self.prod_environment)
             try:
                 picking._neoship_attach_label(client, tracking_number)
             except NeoshipError as e:
                 message = self.env._('The Neoship label could not be downloaded: %s', e)
-                picking.neoship_error = message
+                picking._neoship_main_parcel().error = message
                 picking.message_post(body=message)
         return {'exact_price': self.fixed_price, 'tracking_number': tracking_number}
 
@@ -625,48 +609,44 @@ class DeliveryCarrier(models.Model):
             ) from e
 
     def neoship_get_tracking_link(self, picking):
-        tracking_numbers = [ref.strip() for ref in (picking.carrier_tracking_ref or '').split(',') if ref.strip()]
-        if not tracking_numbers:
+        parcels = picking.neoship_parcel_ids.filtered('tracking_ref')
+        links = [[parcel.tracking_ref, parcel._tracking_url()] for parcel in parcels]
+        if not links:
             return False
-        base_url = PROD_TRACKING_URL if picking.neoship_prod_environment else TEST_TRACKING_URL
-        links = [[number, f'{base_url}{quote(number)}/'] for number in tracking_numbers]
         if len(links) == 1:
             return links[0][1]
         return json.dumps(links)
 
     def neoship_cancel_shipment(self, pickings):
         refused_pickings = pickings.browse()
-        for picking in pickings.filtered('neoship_package_id'):
-            refused = []
+        for picking in pickings.filtered('neoship_parcel_ids'):
+            parcels = picking.neoship_parcel_ids
+            cancelled = refused = parcels.browse()
             try:
-                with self._neoship_client(picking.neoship_prod_environment) as client:
-                    for package_id, tracking_number in picking._neoship_shipments_to_cancel():
+                with self._neoship_client(parcels[:1].prod_environment) as client:
+                    for parcel in parcels.filtered(lambda parcel: not parcel.is_copy):
                         try:
-                            client.cancel_package(package_id)
+                            client.cancel_package(parcel.neoship_id)
                         except NeoshipNotFoundError:
-                            refused.append(tracking_number)
+                            refused |= parcel
+                        else:
+                            cancelled |= parcel
             except NeoshipError as e:
                 raise self._neoship_user_error(e) from e
-            if refused:
-                message = self.env._(
-                    'Neoship can no longer cancel shipment %s. It was probably already handed over to the carrier.',
-                    ', '.join(refused),
-                )
-                picking.write({'neoship_cancel_refused': True, 'neoship_error': message})
-                picking.message_post(body=message)
-                refused_pickings |= picking
+            if not refused:
+                parcels.unlink()
                 continue
-            for pack in picking._neoship_sent_packs():
-                pack.write(pack._neoship_clear_values())
-            picking.write(
-                {
-                    'neoship_package_id': False,
-                    'neoship_shipment_per_pack': False,
-                    'neoship_cod_amount': 0.0,
-                    'neoship_cancel_refused': False,
-                    'neoship_error': False,
-                    'neoship_label_id': False,
-                    **picking._neoship_tracking_reset_values(),
-                }
-            )
+            cancelled.unlink()
+            for parcel in refused:
+                message = self._neoship_cancel_refused_message(parcel.tracking_ref)
+                parcel.write({'cancel_refused': True, 'error': message})
+            picking.carrier_tracking_ref = ','.join(picking.neoship_parcel_ids.mapped('tracking_ref'))
+            picking.message_post(body=self._neoship_cancel_refused_message(', '.join(refused.mapped('tracking_ref'))))
+            refused_pickings |= picking
         return refused_pickings
+
+    def _neoship_cancel_refused_message(self, tracking):
+        return self.env._(
+            'Neoship can no longer cancel shipment %s. It was probably already handed over to the carrier.',
+            tracking,
+        )

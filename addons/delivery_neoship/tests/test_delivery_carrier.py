@@ -116,12 +116,22 @@ class TestDeliveryCarrier(NeoshipCommon):
             with self.subTest(domain=domain), self.assertRaisesRegex(ValidationError, 'cash on delivery filter'):
                 self.carrier.neoship_cod_domain = domain
 
-    def _picking(self, tracking_ref, prod_environment=False):
+    def _picking(self, *tracking_refs, prod_environment=False):
         return self.env['stock.picking'].new(
             {
                 'carrier_id': self.carrier.id,
-                'carrier_tracking_ref': tracking_ref,
-                'neoship_prod_environment': prod_environment,
+                'carrier_tracking_ref': ','.join(tracking_refs),
+                'neoship_parcel_ids': [
+                    Command.create(
+                        {
+                            'neoship_id': index,
+                            'reference': f'REF-{index}',
+                            'tracking_ref': tracking_ref,
+                            'prod_environment': prod_environment,
+                        }
+                    )
+                    for index, tracking_ref in enumerate(tracking_refs, start=1)
+                ],
             }
         )
 
@@ -134,11 +144,11 @@ class TestDeliveryCarrier(NeoshipCommon):
         self.assertEqual(link, 'https://aplikacia.neoship.sk/tracking/202605101419/')
 
     def test_tracking_link_for_multiple_numbers(self):
-        links = json.loads(self.carrier.get_tracking_link(self._picking('111, 222')))
+        links = json.loads(self.carrier.get_tracking_link(self._picking('111', '222')))
         self.assertEqual(links, [['111', TEST_TRACKING_URL + '111/'], ['222', TEST_TRACKING_URL + '222/']])
 
     def test_tracking_link_without_tracking_number(self):
-        self.assertFalse(self.carrier.get_tracking_link(self._picking(False)))
+        self.assertFalse(self.carrier.get_tracking_link(self._picking()))
 
     def test_default_weight_cannot_be_negative(self):
         with mute_logger('odoo.sql_db'), self.assertRaises(psycopg2.errors.CheckViolation):

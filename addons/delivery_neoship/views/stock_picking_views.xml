@@ -7,19 +7,27 @@
         <field name="arch" type="xml">
             <xpath expr="//group[@name='carrier_data']" position="after">
                 <group name="neoship_data" string="Neoship" invisible="delivery_type != 'neoship'">
-                    <field name="neoship_package_id" invisible="not neoship_package_id"/>
-                    <field name="neoship_reference" invisible="not neoship_reference"/>
-                    <field name="neoship_status" invisible="not neoship_package_id"/>
+                    <field name="neoship_status" invisible="not neoship_parcel_ids"/>
                     <field name="neoship_status_group" widget="badge" invisible="not neoship_status_group" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
-                    <field name="neoship_status_date" invisible="not neoship_status_date"/>
-                    <field name="neoship_last_sync" invisible="not neoship_last_sync"/>
-                    <field name="neoship_error" invisible="not neoship_error"/>
-                    <field name="neoship_sync_error" invisible="not neoship_sync_error"/>
-                    <field name="neoship_cod_amount" invisible="not neoship_package_id"/>
-                    <field name="neoship_cod_manual" readonly="neoship_package_id"/>
-                    <field name="neoship_cod_manual_amount" invisible="not neoship_cod_manual" readonly="neoship_package_id"/>
-                    <button name="action_neoship_download_label" type="object" string="Download Label Again" icon="fa-download" class="btn-link" invisible="not neoship_package_id" colspan="2"/>
-                    <button name="action_neoship_update_tracking" type="object" string="Update Tracking" icon="fa-refresh" class="btn-link" invisible="not neoship_package_id or not carrier_tracking_ref" colspan="2"/>
+                    <field name="neoship_cod_manual" readonly="neoship_parcel_ids"/>
+                    <field name="neoship_cod_manual_amount" invisible="not neoship_cod_manual" readonly="neoship_parcel_ids"/>
+                    <field name="neoship_parcel_ids" invisible="not neoship_parcel_ids" nolabel="1" colspan="2">
+                        <list>
+                            <field name="tracking_ref"/>
+                            <field name="package_id" optional="show"/>
+                            <field name="cod_amount" optional="show"/>
+                            <field name="status"/>
+                            <field name="status_group" widget="badge" decoration-success="status_group == 'delivered'" decoration-danger="status_group in ('notdelivered', 'returned')" decoration-info="status_group == 'transit'"/>
+                            <field name="status_date" optional="hide"/>
+                            <field name="last_sync" optional="hide"/>
+                            <field name="reference" optional="hide"/>
+                            <field name="neoship_id" optional="hide"/>
+                            <field name="sync_error" optional="show"/>
+                            <field name="error" optional="show"/>
+                        </list>
+                    </field>
+                    <button name="action_neoship_download_label" type="object" string="Download Label Again" icon="fa-download" class="btn-link" invisible="not neoship_parcel_ids" colspan="2"/>
+                    <button name="action_neoship_update_tracking" type="object" string="Update Tracking" icon="fa-refresh" class="btn-link" invisible="not neoship_parcel_ids" colspan="2"/>
                 </group>
             </xpath>
         </field>
@@ -55,26 +63,6 @@
             <group position="inside">
                 <filter name="group_neoship_status_group" string="Neoship Delivery" context="{'group_by': 'neoship_status_group'}"/>
             </group>
-        </field>
-    </record>
-
-    <record id="view_picking_neoship_shipment_list" model="ir.ui.view">
-        <field name="name">stock.picking.list.neoship.shipment</field>
-        <field name="model">stock.picking</field>
-        <field name="priority" eval="100"/>
-        <field name="arch" type="xml">
-            <list create="false">
-                <field name="name"/>
-                <field name="date_done"/>
-                <field name="carrier_id"/>
-                <field name="carrier_tracking_ref"/>
-                <field name="neoship_status"/>
-                <field name="neoship_status_group" widget="badge" decoration-success="neoship_status_group == 'delivered'" decoration-danger="neoship_status_group in ('notdelivered', 'returned')" decoration-info="neoship_status_group == 'transit'"/>
-                <field name="neoship_cod_amount"/>
-                <field name="state" widget="badge" optional="hide"/>
-                <button name="action_neoship_open_label" type="object" string="Label" icon="fa-file-pdf-o"/>
-                <button name="open_website_url" type="object" string="Tracking" icon="fa-truck"/>
-            </list>
         </field>
     </record>
 </odoo>

@@ -6,3 +6,5 @@ access_neoship_option_wizard_line_sale_manager,neoship.option.wizard.line sale m
 access_neoship_closure_stock_user,neoship.closure stock user,model_neoship_closure,stock.group_stock_user,1,0,0,0
 access_neoship_closure_system,neoship.closure system,model_neoship_closure,base.group_system,1,1,1,1
 access_neoship_closure_schedule_system,neoship.closure.schedule system,model_neoship_closure_schedule,base.group_system,1,1,1,1
+access_neoship_parcel_stock_user,neoship.parcel stock user,model_neoship_parcel,stock.group_stock_user,1,1,1,1
+access_neoship_parcel_salesman,neoship.parcel salesman,model_neoship_parcel,sales_team.group_sale_salesman,1,0,0,0

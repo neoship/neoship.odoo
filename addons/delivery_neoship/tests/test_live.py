@@ -99,7 +99,7 @@ class TestNeoshipLiveShipment(TransactionCase):
         )
 
         picking.send_to_shipper()
-        self.assertTrue(picking.neoship_package_id)
+        self.assertTrue(picking.neoship_parcel_ids)
         self.assertTrue(picking.carrier_tracking_ref)
         attachment = self.env['ir.attachment'].search(
             [('res_model', '=', 'stock.picking'), ('res_id', '=', picking.id), ('name', 'like', 'LabelShipping')]
@@ -107,4 +107,4 @@ class TestNeoshipLiveShipment(TransactionCase):
         self.assertTrue(attachment.raw.startswith(b'%PDF'))
 
         picking.cancel_shipment()
-        self.assertFalse(picking.neoship_package_id)
+        self.assertFalse(picking.neoship_parcel_ids)
