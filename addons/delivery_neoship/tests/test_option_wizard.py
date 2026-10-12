@@ -7,10 +7,31 @@ from .common import NeoshipCommon, login_ok, make_response, mock_neoship
 
 ADDRESS = {'type': 'address', 'countries': ['CZ', 'SK']}
 PARCELSHOP = {'type': 'parcelshop', 'countries': ['SK']}
+SPS_FORMATS = [
+    {'code': 'a4', 'name': 'A4', 'supports_position': True, 'pickup_point_only': False},
+    {'code': 'a6', 'name': 'A6', 'supports_position': False, 'pickup_point_only': False},
+]
+PACKETA_FORMATS = [
+    {'code': 'A6 on A4', 'name': 'A6 on A4, 4 labels', 'supports_position': True, 'pickup_point_only': False},
+    {'code': 'A6 on A6', 'name': 'A6 on A6, Zebra label', 'supports_position': True, 'pickup_point_only': False},
+    {'code': 'A8 on A8', 'name': 'A8 on A8, Zebra label', 'supports_position': True, 'pickup_point_only': True},
+]
 SHIPPERS = [
-    {'id': 2, 'name': 'SPS', 'shortcut': 'SPS', 'delivery_types': [ADDRESS, PARCELSHOP]},
-    {'id': 3, 'name': 'Packeta', 'shortcut': 'Packeta', 'delivery_types': [ADDRESS, PARCELSHOP]},
-    {'id': 4, 'name': '123kuriér', 'shortcut': '123', 'delivery_types': [ADDRESS]},
+    {
+        'id': 2,
+        'name': 'SPS',
+        'shortcut': 'SPS',
+        'delivery_types': [ADDRESS, PARCELSHOP],
+        'print_formats': SPS_FORMATS,
+    },
+    {
+        'id': 3,
+        'name': 'Packeta',
+        'shortcut': 'Packeta',
+        'delivery_types': [ADDRESS, PARCELSHOP],
+        'print_formats': PACKETA_FORMATS,
+    },
+    {'id': 4, 'name': '123kuriér', 'shortcut': '123', 'delivery_types': [ADDRESS], 'print_formats': []},
 ]
 PACKETA_CARRIERS = [
     {
@@ -74,6 +95,77 @@ class TestOptionWizard(NeoshipCommon):
         wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
         pickup_points = {line.code: line.supports_parcelshops for line in wizard.line_ids}
         self.assertEqual(pickup_points, {'SPS': True, 'Packeta': True, '123': False})
+
+    def test_shipper_options_are_named_in_the_user_language(self):
+        _wizard, calls = self._open('action_neoship_choose_shipper', SHIPPERS, self.carrier.with_context(lang='en_US'))
+        self.assertEqual(calls[-1]['headers']['Accept-Language'], 'en-US')
+
+    def test_selecting_shipper_sets_its_default_label_format(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, 'SPS')
+        self.assertEqual(self.carrier.neoship_label_format, 'a4')
+        self.assertEqual(self.carrier.neoship_label_format_name, 'A4')
+        self.assertFalse(self.carrier.neoship_label_format_fallback)
+
+    def test_selecting_packeta_sets_its_default_label_format(self):
+        self._choose_packeta('SK Packeta Home HD')
+        self.assertEqual(self.carrier.neoship_label_format, 'A6 on A4')
+
+    def test_selecting_shipper_without_formats_leaves_label_format_empty(self):
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, '123kuriér')
+        self.assertFalse(self.carrier.neoship_label_format)
+        self.assertFalse(self.carrier.neoship_label_format_name)
+
+    def test_label_format_options_come_from_api_in_its_order(self):
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, calls = self._open('action_neoship_choose_label_format', SHIPPERS)
+        self.assertTrue(calls[-1]['url'].endswith('/shipper/active'))
+        self.assertEqual(wizard.kind, const.OPTION_KIND_LABEL_FORMAT)
+        self.assertEqual(wizard.line_ids.mapped('code'), ['A6 on A4', 'A6 on A6', 'A8 on A8'])
+        self.assertEqual(wizard.line_ids.mapped('pickup_point_only'), [False, False, True])
+        self.assertTrue(wizard.has_pickup_point_only)
+
+    def test_label_formats_without_pickup_point_only_ones_hide_that_column(self):
+        self.carrier._neoship_set_shipper(2, 'SPS', 'SPS')
+        wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)
+        self.assertFalse(wizard.has_pickup_point_only)
+
+    def test_select_label_format_stores_it_on_delivery_method(self):
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)
+        self._select(wizard, 'A6 on A6, Zebra label')
+        self.assertEqual(self.carrier.neoship_label_format, 'A6 on A6')
+        self.assertEqual(self.carrier.neoship_label_format_name, 'A6 on A6, Zebra label')
+        self.assertFalse(self.carrier.neoship_label_format_fallback)
+
+    def test_pickup_point_only_label_format_keeps_default_for_addresses(self):
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)
+        self._select(wizard, 'A8 on A8, Zebra label')
+        self.assertEqual(self.carrier.neoship_label_format, 'A8 on A8')
+        self.assertEqual(self.carrier.neoship_label_format_fallback, 'A6 on A4')
+
+    def test_choosing_same_carrier_again_keeps_label_format(self):
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)
+        self._select(wizard, 'A6 on A6, Zebra label')
+        self._choose_packeta('SK Packeta Home HD')
+        self.assertEqual(self.carrier.neoship_label_format, 'A6 on A6')
+
+    def test_changing_carrier_sets_its_default_label_format(self):
+        self._choose_packeta('SK Packeta Home HD')
+        wizard, _calls = self._open('action_neoship_choose_shipper', SHIPPERS)
+        self._select(wizard, 'SPS')
+        self.assertEqual(self.carrier.neoship_label_format, 'a4')
+
+    def test_carrier_without_label_formats_cannot_choose_one(self):
+        self.carrier._neoship_set_shipper(4, '123', '123kuriér')
+        with (
+            mock_neoship(login_ok(), make_response(json_data=SHIPPERS)),
+            self.assertRaisesRegex(UserError, 'no label formats'),
+        ):
+            self.carrier.action_neoship_choose_label_format()
 
     def test_account_without_connected_carriers_is_reported(self):
         with (
@@ -142,6 +234,7 @@ class TestOptionWizard(NeoshipCommon):
         self.assertFalse(self.carrier.neoship_shipper_id)
         self.assertFalse(self.carrier.neoship_shipper_name)
         self.assertFalse(self.carrier.neoship_carrier_type)
+        self.assertFalse(self.carrier.neoship_label_format)
 
     def test_writing_same_environment_keeps_carrier(self):
         self._choose_packeta('SK Packeta Home HD')

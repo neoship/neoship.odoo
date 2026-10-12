@@ -129,7 +129,15 @@ class NeoshipShippingCommon(NeoshipCommon):
             }
         )
         cls.product = cls.env['product.product'].create({'name': 'Vitamin C', 'type': 'consu', 'weight': 0.4})
-        cls.carrier.write({'neoship_shipper_id': 2, 'neoship_shipper_code': 'SPS', 'neoship_shipper_name': 'SPS'})
+        cls.carrier.write(
+            {
+                'neoship_shipper_id': 2,
+                'neoship_shipper_code': 'SPS',
+                'neoship_shipper_name': 'SPS',
+                'neoship_label_format': 'a4',
+                'neoship_label_format_name': 'A4',
+            }
+        )
 
     def _send(self, picking, *responses):
         # Sending reads the status of the new parcels last; unused when sending fails earlier.
@@ -137,9 +145,14 @@ class NeoshipShippingCommon(NeoshipCommon):
             picking.send_to_shipper()
         return calls
 
+    def _create_call(self, calls):
+        return next(call for call in calls if '/bulk-create-and-print/' in call['url'])
+
     def _sent_packages(self, calls):
-        create_call = next(call for call in calls if '/bulk-create-and-print/' in call['url'])
-        return create_call['json']['packages']
+        return self._create_call(calls)['json']['packages']
+
+    def _sent_print_type(self, calls):
+        return self._create_call(calls)['json']['options']['print_type']
 
     def _sent_package(self, calls):
         return self._sent_packages(calls)[0]

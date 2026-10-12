@@ -144,6 +144,9 @@ class TestSendShipping(NeoshipShippingCommon):
                 'neoship_carrier_type': 131,
                 'neoship_carrier_type_name': 'SK Packeta Home HD',
                 'neoship_carrier_type_country_id': self.country_sk.id,
+                'neoship_label_format': 'A6 on A4',
+                'neoship_label_format_name': 'A6 on A4',
+                'neoship_label_format_fallback': False,
                 **values,
             }
         )
@@ -173,7 +176,7 @@ class TestSendShipping(NeoshipShippingCommon):
         calls = self._send(picking, NOT_FOUND, created(), label())
 
         self.assertTrue(calls[2]['url'].endswith('/package/bulk-create-and-print/2'))
-        self.assertEqual(calls[2]['json']['options'], {'print_type': const.LABEL_PRINT_TYPES[const.SHIPPER_CODE_SPS]})
+        self.assertEqual(calls[2]['json']['options'], {'print_type': 'a4'})
         package = self._sent_package(calls)
         self.assertTrue(package['reference_number'].endswith(picking.name.replace('/', '-')))
         self.assertEqual(package['receiver_name'], 'Jan Testovaci')
@@ -192,6 +195,16 @@ class TestSendShipping(NeoshipShippingCommon):
         )
         self.assertEqual(attachment.name, 'LabelShipping-neoship-TRK1.pdf')
         self.assertEqual(attachment.raw, PDF)
+
+    def test_chosen_label_format_is_sent(self):
+        self.carrier.neoship_label_format = 'a6'
+        calls = self._send(self._picking(), NOT_FOUND, created(), label())
+        self.assertEqual(self._sent_print_type(calls), 'a6')
+
+    def test_carrier_without_label_format_leaves_it_to_neoship(self):
+        self.carrier.neoship_label_format = False
+        calls = self._send(self._picking(), NOT_FOUND, created(), label())
+        self.assertNotIn('options', self._create_call(calls)['json'])
 
     def test_send_reads_status_of_new_shipment(self):
         picking = self._picking()
@@ -593,10 +606,7 @@ class TestSendShipping(NeoshipShippingCommon):
         package = self._sent_package(calls)
         self.assertEqual(package['carrier_type'], 131)
         self.assertNotIn('parcelshop', package)
-        create_call = next(call for call in calls if '/bulk-create-and-print/' in call['url'])
-        self.assertEqual(
-            create_call['json']['options'], {'print_type': const.LABEL_PRINT_TYPES[const.SHIPPER_CODE_PACKETA]}
-        )
+        self.assertEqual(self._sent_print_type(calls), 'A6 on A4')
 
     def test_packeta_home_delivery_to_another_country_is_refused_before_calling_neoship(self):
         self._use_packeta(
@@ -621,6 +631,17 @@ class TestSendShipping(NeoshipShippingCommon):
         package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
         self.assertEqual(package['parcelshop'], 'PS-1234')
         self.assertNotIn('carrier_type', package)
+
+    def test_packeta_pickup_point_label_format_is_used_for_pickup_point(self):
+        self._use_packeta(neoship_label_format='A7 on A4', neoship_label_format_fallback='A6 on A4')
+        self.order.neoship_parcelshop_id = 'PS-1234'
+        calls = self._send(self._picking(), NOT_FOUND, created(), label())
+        self.assertEqual(self._sent_print_type(calls), 'A7 on A4')
+
+    def test_packeta_pickup_point_label_format_falls_back_for_home_delivery(self):
+        self._use_packeta(neoship_label_format='A7 on A4', neoship_label_format_fallback='A6 on A4')
+        calls = self._send(self._picking(), NOT_FOUND, created(), label())
+        self.assertEqual(self._sent_print_type(calls), 'A6 on A4')
 
     def test_packeta_weight_limit(self):
         self._use_packeta()

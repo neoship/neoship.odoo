@@ -11,17 +11,6 @@ SHIPPER_CODES_WITH_CARRIER_TYPE = (SHIPPER_CODE_PACKETA,)
 SHIPPER_CODES_SHIPMENT_PER_PACK = (SHIPPER_CODE_PACKETA,)
 SHIPPER_DELIVERY_TYPE_PARCELSHOP = 'parcelshop'
 
-# Carrier-specific formats from ../api, ../neoship-app and Neoship's API documentation.
-# The API endpoint otherwise forces GLS's A4_2x2 for every shipper.
-LABEL_PRINT_TYPES = {
-    SHIPPER_CODE_GLS: 'A4_2x2',
-    SHIPPER_CODE_PACKETA: 'A6 on A4',
-    SHIPPER_CODE_SPS: 'a4',
-    SHIPPER_CODE_DPD: 'A4',
-    SHIPPER_CODE_SK_POSTA: 'A6',
-    SHIPPER_CODE_SDS: 'default',
-}
-
 REFERENCE_MAX_LENGTH = 25
 REFERENCE_COMPANY_PREFIX = 'C'
 REFERENCE_INVALID_CHARS = r'[^A-Za-z0-9_-]+'
@@ -98,6 +87,7 @@ WEEKDAY_FIELDS = ('mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun')
 
 OPTION_KIND_SHIPPER = 'shipper'
 OPTION_KIND_CARRIER_TYPE = 'carrier_type'
+OPTION_KIND_LABEL_FORMAT = 'label_format'
 
 ODOO_DELIVERY_TYPE_FIXED = 'fixed'
 ODOO_PRODUCT_TYPE_GOODS = 'consu'

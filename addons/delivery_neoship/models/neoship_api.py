@@ -54,12 +54,14 @@ class NeoshipResponseError(NeoshipError):
 
 
 class NeoshipClient:
-    def __init__(self, base_url, username, password, timeout=30):
+    def __init__(self, base_url, username, password, timeout=30, language=None):
         self.base_url = base_url.rstrip('/')
         self.username = username
         self.password = password
         self.timeout = timeout
         self.session = requests.Session()
+        if language:
+            self.session.headers['Accept-Language'] = language.replace('_', '-')
 
     def __enter__(self):
         return self
