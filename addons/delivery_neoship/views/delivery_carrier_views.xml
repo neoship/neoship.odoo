@@ -48,6 +48,9 @@
                     </group>
                     <group name="neoship_cod" string="Cash on Delivery">
                         <field name="neoship_cod_domain" widget="domain" options="{'model': 'sale.order', 'in_dialog': True}"/>
+                        <div class="alert alert-info mb-0" role="status" colspan="2" invisible="neoship_cod_domain not in (False, '[]')">
+                            No order is cash on delivery. Click Edit Domain and choose the orders that are.
+                        </div>
                     </group>
                 </page>
             </xpath>

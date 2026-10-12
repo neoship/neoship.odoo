@@ -66,7 +66,7 @@ class DeliveryCarrier(models.Model):
         string='Cash on Delivery Orders',
         help=(
             'Sales orders matching this filter are shipped as cash on delivery. '
-            'When empty, no order is cash on delivery.'
+            'When empty or without conditions, no order is cash on delivery.'
         ),
     )
 
@@ -184,6 +184,9 @@ class DeliveryCarrier(models.Model):
         if not self.neoship_cod_domain or not order:
             return False
         domain = safe_eval(self.neoship_cod_domain, self._neoship_cod_eval_context())
+        # A filter without conditions matches every order, but it looks the same as no filter in the editor.
+        if not domain:
+            return False
         # Warehouse users cannot read every sale.order field (e.g. transaction_ids); the result must not depend on them.
         return bool(order.sudo().filtered_domain(domain))
 
@@ -407,6 +410,7 @@ class DeliveryCarrier(models.Model):
                 message = self.env._('The Neoship label could not be downloaded: %s', e)
                 picking._neoship_main_parcel().error = message
                 picking.message_post(body=message)
+            picking.neoship_parcel_ids._sync_created(client, self)
         return {'exact_price': self.fixed_price, 'tracking_number': tracking_number}
 
     def _neoship_find_or_create(self, client, picking, packages):

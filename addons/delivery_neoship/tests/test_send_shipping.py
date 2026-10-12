@@ -10,17 +10,21 @@ from odoo.tools import mute_logger
 from odoo.addons.delivery_neoship import const
 from odoo.addons.delivery_neoship.models.neoship_api import PROD_URL, TEST_TRACKING_URL, TEST_URL
 
-from .common import NeoshipCommon, login_ok, make_response, mock_neoship
+from .common import (
+    NOT_FOUND,
+    PDF,
+    NeoshipShippingCommon,
+    created,
+    label,
+    login_ok,
+    make_response,
+    mock_neoship,
+    tracked,
+)
 
-PDF = b'%PDF-1.5 label'
-NOT_FOUND = make_response(404, {})
+PARCEL_LOGGER = 'odoo.addons.delivery_neoship.models.neoship_parcel'
+
 PACKETA_SHIPPER = {'id': 3, 'name': 'Packeta', 'shortcut': 'Packeta'}
-
-
-def created(package_id=501, tracking_number='TRK1', reference='REF', **values):
-    return make_response(
-        json_data=[{'id': package_id, 'reference_number': reference, 'tracking_number': tracking_number, **values}]
-    )
 
 
 def created_parcels(picking, *parcels):
@@ -86,40 +90,11 @@ def existing_shipment(reference, package_id=777, tracking_number='TRK-OLD', **va
     }
 
 
-def label():
-    return make_response(content=PDF, content_type='application/pdf')
-
-
 @tagged('post_install', '-at_install')
-class TestSendShipping(NeoshipCommon):
+class TestSendShipping(NeoshipShippingCommon):
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
-        cls.country_sk = cls.env.ref('base.sk')
-        cls.warehouse = cls.env['stock.warehouse'].search([('company_id', '=', cls.env.company.id)], limit=1)
-        cls.warehouse.partner_id.write(
-            {
-                'street': 'Mlynske nivy 5',
-                'city': 'Bratislava',
-                'zip': '82109',
-                'country_id': cls.country_sk.id,
-                'email': 'warehouse@example.com',
-                'phone': '+421900111222',
-            }
-        )
-        cls.customer = cls.env['res.partner'].create(
-            {
-                'name': 'Jan Testovaci',
-                'street': 'Hlavna 1',
-                'city': 'Kosice',
-                'zip': '04001',
-                'country_id': cls.country_sk.id,
-                'email': 'jan@example.com',
-                'phone': '+421900123456',
-            }
-        )
-        cls.product = cls.env['product.product'].create({'name': 'Vitamin C', 'type': 'consu', 'weight': 0.4})
-        cls.carrier.write({'neoship_shipper_id': 2, 'neoship_shipper_code': 'SPS', 'neoship_shipper_name': 'SPS'})
         cls.order = cls._create_order(cls.customer)
 
     @classmethod
@@ -159,18 +134,6 @@ class TestSendShipping(NeoshipCommon):
         return self.env['neoship.parcel'].create(
             {'picking_id': picking.id, 'neoship_id': 900, 'reference': reference, 'tracking_ref': 'TRK-OTHER'}
         )
-
-    def _send(self, picking, *responses):
-        with mock_neoship(login_ok(), *responses) as calls:
-            picking.send_to_shipper()
-        return calls
-
-    def _sent_packages(self, calls):
-        create_call = next(call for call in calls if '/bulk-create-and-print/' in call['url'])
-        return create_call['json']['packages']
-
-    def _sent_package(self, calls):
-        return self._sent_packages(calls)[0]
 
     def _use_packeta(self, **values):
         self.carrier.write(
@@ -221,7 +184,6 @@ class TestSendShipping(NeoshipCommon):
         self.assertEqual(package['weight'], 0.8)
         self.assertEqual(package['count_of_packages'], 1)
         self.assertNotIn('cod_price', package)
-
         self.assertEqual(picking.neoship_parcel_ids.neoship_id, 501)
         self.assertEqual(picking.carrier_tracking_ref, 'TRK1')
         self.assertEqual(picking.neoship_parcel_ids.reference, package['reference_number'])
@@ -230,6 +192,33 @@ class TestSendShipping(NeoshipCommon):
         )
         self.assertEqual(attachment.name, 'LabelShipping-neoship-TRK1.pdf')
         self.assertEqual(attachment.raw, PDF)
+
+    def test_send_reads_status_of_new_shipment(self):
+        picking = self._picking()
+        calls = self._send(picking, NOT_FOUND, created(), label())
+
+        self.assertEqual(calls[-1]['url'], TEST_URL + '/package/referencenumber/')
+        self.assertEqual(calls[-1]['json']['reference_numbers'], [picking.neoship_parcel_ids.reference])
+        self.assertEqual(picking.neoship_status_group, const.STATUS_GROUP_EXPORTED)
+        self.assertEqual(picking.neoship_status, 'Exportovaná')
+        self.assertTrue(picking.neoship_parcel_ids.status_date)
+        self.assertFalse(picking.message_ids.filtered(lambda message: 'Exportovaná' in (message.body or '')))
+
+    def test_status_error_after_send_keeps_shipment(self):
+        picking = self._picking()
+        with mute_logger(PARCEL_LOGGER):
+            self._send(picking, NOT_FOUND, created(), label(), make_response(500, {'message': 'Tracking down'}))
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1')
+        self.assertFalse(picking.neoship_status_group)
+        self.assertIn('Tracking down', picking.neoship_parcel_ids.sync_error)
+
+    def test_connection_error_on_status_after_send_keeps_shipment(self):
+        picking = self._picking()
+        with mute_logger(PARCEL_LOGGER):
+            self._send(picking, NOT_FOUND, created(), label(), requests.exceptions.ConnectionError())
+        self.assertEqual(picking.carrier_tracking_ref, 'TRK1')
+        self.assertFalse(picking.neoship_status_group)
+        self.assertIn('Cannot connect to Neoship', picking.neoship_parcel_ids.sync_error)
 
     def test_reference_is_transfer_name_with_single_company(self):
         picking = self._picking()
@@ -278,7 +267,9 @@ class TestSendShipping(NeoshipCommon):
 
     def test_existing_shipment_with_same_cash_on_delivery_is_linked(self):
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
-        picking = self._picking()
+        self.order.action_confirm()
+        picking = self.order.picking_ids
+        self._validate(picking)
         existing = found(
             picking, cod_price=f'{self.order.amount_total:.4f}', cod_currency_code=self.order.currency_id.name
         )
@@ -557,38 +548,21 @@ class TestSendShipping(NeoshipCommon):
         with self.assertRaisesRegex(UserError, 'Choose the Neoship carrier'):
             self._picking().send_to_shipper()
 
-    def test_cash_on_delivery_uses_order_total(self):
-        self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
-        picking = self._picking()
-        package = self._sent_package(self._send(picking, NOT_FOUND, created(), label()))
-        self.assertEqual(package['cod_price'], self.order.amount_total)
-        self.assertEqual(package['cod_currency_code'], self.order.currency_id.name)
-        self.assertEqual(package['cod_reference'], self.order.name)
-        self.assertEqual(picking.neoship_parcel_ids.cod_amount, self.order.amount_total)
-
-    def test_second_cash_on_delivery_shipment_needs_manual_amount(self):
-        self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
-        self._send(self._picking(), NOT_FOUND, created(), label())
-        backorder = self._picking(quantity=1)
-        with self.assertRaisesRegex(UserError, 'already has a cash on delivery shipment'):
-            self._send(backorder)
-
-        backorder.write({'neoship_cod_manual': True, 'neoship_cod_manual_amount': 12.5})
-        package = self._sent_package(self._send(backorder, NOT_FOUND, created(502, 'TRK2'), label()))
-        self.assertEqual(package['cod_price'], 12.5)
-
-    def test_cash_on_delivery_locks_other_neoship_deliveries_of_order(self):
+    def test_cash_on_delivery_locks_other_deliveries_of_order(self):
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
         picking, other = self._picking(), self._picking()
         cancelled = self._picking()
         cancelled.state = const.ODOO_PICKING_STATE_CANCEL
-        self._picking().carrier_id = False
+        other_carrier = self._picking()
+        other_carrier.carrier_id = False
+        receipt = self._picking()
+        receipt.picking_type_id = self.warehouse.in_type_id
         locked = []
         with patch.object(
             type(picking), 'lock_for_update', autospec=True, side_effect=lambda records, **kw: locked.append(records)
         ):
             self._send(picking, NOT_FOUND, created(), label())
-        self.assertEqual(locked, [picking, other])
+        self.assertEqual(locked, [picking, other | other_carrier])
 
     def test_cash_on_delivery_refused_while_other_delivery_of_order_is_locked(self):
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
@@ -766,7 +740,7 @@ class TestSendShipping(NeoshipCommon):
         picking.action_confirm()
         picking.move_ids.quantity = 2
         picking.move_ids.picked = True
-        with mock_neoship(login_ok(), NOT_FOUND, created(), label()):
+        with mock_neoship(login_ok(), NOT_FOUND, created(), label(), tracked(picking)):
             picking.button_validate()
         self.assertEqual(picking.state, 'done')
         self.assertEqual(picking.carrier_tracking_ref, 'TRK1')
@@ -781,6 +755,7 @@ class TestSendShipping(NeoshipCommon):
         self._use_packeta()
         self.carrier.neoship_cod_domain = f"[('partner_id', '=', {self.customer.id})]"
         picking = self._packed_picking(1.0, 2.5)
+        picking.move_ids.sale_line_id = self.order.order_line
         reference = picking._neoship_reference()
         calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
 

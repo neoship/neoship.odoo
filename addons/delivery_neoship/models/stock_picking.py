@@ -1,6 +1,8 @@
+from datetime import datetime
+
 from odoo import api, fields, models
 from odoo.exceptions import LockError, UserError
-from odoo.tools import float_round, ormcache
+from odoo.tools import float_round, format_amount, ormcache
 
 from .. import const
 from ..tools import neoship_code, neoship_combined_status_group, neoship_parcel_reference, neoship_phone
@@ -22,7 +24,8 @@ class StockPicking(models.Model):
         string='Manual Cash on Delivery',
         copy=False,
         help=(
-            'Send the amount below instead of the amount computed from the sales order. Zero means no cash on delivery.'
+            'Send the amount below instead of the amount computed from the products of this transfer. '
+            'Zero means no cash on delivery.'
         ),
     )
     neoship_cod_manual_amount = fields.Float(string='Cash on Delivery Amount', digits='Product Price', copy=False)
@@ -262,27 +265,27 @@ class StockPicking(models.Model):
         if self.neoship_cod_manual:
             amount = self.neoship_cod_manual_amount
         elif self.carrier_id._neoship_is_cod(order):
-            others = order.picking_ids - self
-            others.filtered(
+            (order.picking_ids - self).filtered(
                 lambda picking: (
-                    picking.delivery_type == const.DELIVERY_TYPE and picking.state != const.ODOO_PICKING_STATE_CANCEL
+                    picking.picking_type_code == const.ODOO_PICKING_TYPE_OUTGOING
+                    and picking.state != const.ODOO_PICKING_STATE_CANCEL
                 )
             )._neoship_lock_for_order(order)
-            previous = others.neoship_parcel_ids.filtered('cod_amount').picking_id
-            if previous:
-                raise UserError(
-                    self.env._(
-                        'Order %(order)s already has a cash on delivery shipment (%(transfers)s). '
-                        'Set the cash on delivery amount on transfer %(transfer)s manually.',
-                        order=order.name,
-                        transfers=', '.join(previous.mapped('name')),
-                        transfer=self.name,
-                    )
-                )
-            amount = order.amount_total
+            amount = self._neoship_cod_amount()
         else:
             return {}
-        currency = order.currency_id or self.company_id.currency_id
+        currency = self._neoship_cod_currency()
+        if currency.compare_amounts(amount, 0) < 0:
+            raise UserError(
+                self.env._(
+                    'The cash on delivery amount of transfer %(transfer)s would be %(amount)s, '
+                    'for example because of a discount on order %(order)s. '
+                    'Set the cash on delivery amount manually.',
+                    transfer=self.name,
+                    amount=format_amount(self.env, amount, currency),
+                    order=order.name,
+                )
+            )
         if currency.is_zero(amount):
             return {}
         return {
@@ -290,6 +293,57 @@ class StockPicking(models.Model):
             'cod_currency_code': currency.name,
             'cod_reference': neoship_code(order.name or self.name),
         }
+
+    def _neoship_cod_currency(self):
+        return self.sale_id.currency_id or self.company_id.currency_id
+
+    def _neoship_cod_amount(self):
+        # The first delivery also collects the services, the one completing the order the rest of its total;
+        # a negative share is deducted from the next delivery.
+        self.ensure_one()
+        order = self.sale_id
+        currency = self._neoship_cod_currency()
+        lines = order.order_line.filtered(lambda line: not line.display_type and not line.is_downpayment)
+        goods = lines.filtered(
+            lambda line: (
+                line.product_type == const.ODOO_PRODUCT_TYPE_GOODS
+                and not line.product_uom_id.is_zero(line.product_uom_qty)
+            )
+        )
+        services = lines.filtered(lambda line: line.product_type == const.ODOO_PRODUCT_TYPE_SERVICE)
+        moves = self.env['stock.move']
+        delivered = dict.fromkeys(goods, 0.0)
+        collected = carried = 0.0
+        for index, picking in enumerate(self._neoship_cod_deliveries()):
+            moves |= picking.move_ids.filtered(
+                lambda move: move.state != const.ODOO_MOVE_STATE_CANCEL and move.sale_line_id in goods
+            )
+            amount = carried + (sum(services.mapped('price_total')) if index == 0 else 0.0)
+            for line in goods:
+                line_moves = moves.filtered(lambda move, line=line: move.sale_line_id == line)
+                quantity = line_moves._neoship_delivered_quantity(line)
+                amount += (quantity - delivered[line]) * line.price_total / line.product_uom_qty
+                delivered[line] = quantity
+            completes = all(line.product_uom_id.compare(delivered[line], line.product_uom_qty) >= 0 for line in goods)
+            amount = currency.round(order.amount_total - collected if completes else amount)
+            carried = 0.0
+            if not completes and currency.compare_amounts(amount, 0) < 0:
+                carried, amount = amount, 0.0
+            if picking == self:
+                return amount
+            collected += amount
+        return collected
+
+    def _neoship_cod_deliveries(self):
+        done = self.sale_id.picking_ids.filtered(
+            lambda picking: (
+                picking.picking_type_code == const.ODOO_PICKING_TYPE_OUTGOING
+                and picking.state == const.ODOO_PICKING_STATE_DONE
+            )
+        )
+        return (done | self).sorted(
+            lambda picking: (not picking.date_done, picking.date_done or datetime.min, picking.id)
+        )
 
     def _neoship_attach_label(self, client, tracking_number):
         self.ensure_one()

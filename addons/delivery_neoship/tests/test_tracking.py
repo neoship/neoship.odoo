@@ -11,11 +11,10 @@ from odoo.tools.safe_eval import safe_eval
 from odoo.addons.delivery_neoship import const
 from odoo.addons.delivery_neoship.models.neoship_api import TEST_URL
 
-from .common import NeoshipCommon, login_ok, make_response, mock_neoship
+from .common import STATUS_EXPORTED, NeoshipCommon, login_ok, make_response, mock_neoship
 
 LOGGER = 'odoo.addons.delivery_neoship.models.neoship_parcel'
 SPS = {'id': 2, 'name': 'SPS', 'shortcut': 'SPS'}
-STATUS_EXPORTED = {'id': 205, 'name': 'Exportovaná', 'group': 'exported'}
 STATUS_DATA_DEFINED = {'id': 107, 'name': 'Definícia dát', 'group': None}
 STATUS_TRANSIT = {'id': 109, 'name': 'Prvá registrácia', 'group': 'transit'}
 STATUS_DELIVERED = {'id': 120, 'name': 'Doručená', 'group': 'delivered'}

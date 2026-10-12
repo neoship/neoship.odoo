@@ -89,6 +89,9 @@ class TestDeliveryCarrier(NeoshipCommon):
         self.assertTrue(self.carrier._neoship_is_cod(cod_order))
         self.assertFalse(self.carrier._neoship_is_cod(prepaid_order))
 
+        self.carrier.neoship_cod_domain = '[]'
+        self.assertFalse(self.carrier._neoship_is_cod(cod_order))
+
     def test_cod_domain_on_restricted_field_is_the_same_for_warehouse_users(self):
         warehouse_user = self.env['res.users'].create(
             {

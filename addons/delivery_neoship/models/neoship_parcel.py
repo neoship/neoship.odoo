@@ -161,7 +161,15 @@ class NeoshipParcel(models.Model):
             rest._sync_failed(carrier._neoship_error_message(e) if isinstance(e, NeoshipError) else str(e))
             run.done(rest, failed=len(rest))
 
-    def _sync_batch(self, client, carrier, environment):
+    def _sync_created(self, client, carrier):
+        environment = const.ENVIRONMENT_PRODUCTION if carrier.prod_environment else const.ENVIRONMENT_TEST
+        try:
+            self._sync_batch(client, carrier, environment, notify=False)
+        except NeoshipConnectionError as e:
+            _logger.warning('Neoship tracking failed for delivery method %s (%s): %s', carrier.name, environment, e)
+            self._sync_failed(carrier._neoship_error_message(e))
+
+    def _sync_batch(self, client, carrier, environment, notify=True):
         try:
             by_id = {shipment.id: shipment for shipment in client.find_packages(self.mapped('reference'))}
         except NeoshipConnectionError:
@@ -185,7 +193,8 @@ class NeoshipParcel(models.Model):
                 changed += parcel._apply_status(shipment)
             else:
                 failed += 1
-        pickings._neoship_post_status_change(groups_before)
+        if notify:
+            pickings._neoship_post_status_change(groups_before)
         return changed, failed
 
     def _read_shipment(self, client):
