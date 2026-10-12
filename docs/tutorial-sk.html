@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="sk">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Obrázkový návod na expedíciu cez Neoship v Odoo 19: nastavenie, SPS a ďalší dopravcovia, Packeta na adresu aj výdajné miesto, dobierka, viac balíkov, štítky, sledovanie, storno a uzávierky.">
+  <title>Neoship × Odoo 19 — Návod na expedíciu</title>
+  <link rel="alternate" hreflang="en" href="tutorial.html">
+  <link rel="stylesheet" href="tutorial-assets/guide.css">
+  <script src="tutorial-assets/screenshot-guides.js" defer></script>
+  <script src="tutorial-assets/guide.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#content">Preskočiť na návod</a>
+<aside class="rail" aria-label="Navigácia v návode">
+  <div class="brand">Neoship × Odoo</div>
+  <p>PRAKTICKÝ NÁVOD / ODOO 19</p>
+  <nav aria-label="Kapitoly">
+    <a href="#before-you-start">01 · Skôr než začnete</a>
+    <a href="#setup">02 · Pripojenie a nastavenie</a>
+    <a href="#first-shipment">03 · Expedícia cez SPS</a>
+    <a href="#packeta">04 · Packeta: služba podľa krajiny</a>
+    <a href="#pickup-point">05 · Výdajné miesta</a>
+    <a href="#packages-cod">06 · Balíky a čiastočné dodávky</a>
+    <a href="#errors">07 · Oprava a opakovanie</a>
+    <a href="#tracking">08 · Štítky a sledovanie</a>
+    <a href="#cancellation">09 · Storno zásielky</a>
+    <a href="#closures">10 · Uzávierky a protokoly</a>
+  </nav>
+  <p class="note">Kliknutím obrázok zväčšíte.</p>
+</aside>
+<div class="progress" aria-hidden="true"></div>
+<main id="content">
+  <header class="hero">
+    <h1>Neoship × Odoo 19 — návod na expedíciu</h1>
+  </header>
+
+  <section id="before-you-start">
+    <div class="section-head"><span class="number">01</span><h2>Skôr než začnete</h2></div>
+    <h3>Predpoklady</h3>
+    <ul>
+      <li>Účet Neoship: prihlasovacie meno a heslo.</li>
+      <li>Na účte Neoship aktivovaný aspoň jeden dopravca. Vo výbere dopravcu (kapitola 02) sa zobrazia iba aktívni dopravcovia.</li>
+      <li>Ak posielate cez Slovenskú poštu, požiadajte administrátorov Neoship, aby pre váš účet vypli automatickú dennú uzávierku. Inak Neoship uzatvára zásielky Slovenskej pošty sám; uzávierky z Odoo opisuje kapitola 10.</li>
+      <li>Testovacie (<a href="https://t-we-nshp-webapp-01-app.azurewebsites.net/">t-we-nshp-webapp-01-app.azurewebsites.net</a>) a produkčné prostredie (<a href="https://aplikacia.neoship.sk/">aplikacia.neoship.sk</a>) majú samostatné prihlasovacie údaje Neoship. Údaje na dopravnej metóde musia zodpovedať jej prostrediu: v testovacom prostredí (Test Environment) testovacie, v produkcii produkčné.</li>
+    </ul>
+    <h3>Príklady, s ktorými budeme pracovať</h3>
+    <p>Obchod je <strong>Zrnko s.r.o.</strong>, pražiareň kávy na Panónskej ceste 7, 851 04 Bratislava, ktorá expeduje zo skladu <strong>Sklad Bratislava</strong> (dodacie listy <code>BA/OUT/…</code>). Ceny sú s 23 % DPH, všetky objednávky sú v EUR a e-shop označuje platbu štítkom objednávky: <strong>Dobierka</strong> alebo <strong>Platba kartou</strong>.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col">Údaj</th><th scope="col">Príklad</th></tr></thead>
+      <tbody>
+        <tr><th scope="row">Príjemca</th><td>Jana Nováková<br>Hlavná 12, 040 01 Košice, SK</td></tr>
+        <tr><th scope="row">Formát telefónu</th><td><code>+421 905 123 456</code></td></tr>
+        <tr><th scope="row">Objednávka</th><td>2 × 11,90 € káva + 12,90 € hrnček + 3,90 € SPS = <strong>40,60 €</strong>, dobierka</td></tr>
+        <tr><th scope="row">Hmotnosť po zabalení</th><td>0,98 kg (z hmotností produktov)</td></tr>
+      </tbody>
+    </table></div>
+  </section>
+
+  <section id="setup">
+    <div class="section-head"><span class="number">02</span><h2>Pripojte účet a vyberte dopravcu</h2></div>
+    <ol class="steps">
+      <li>Otvorte <strong>Inventár (Inventory)</strong> <span class="ref">a</span> → <strong>Konfigurácia (Configuration)</strong> <span class="ref">b</span> → <strong>Dopravné metódy (Delivery Methods)</strong> <span class="ref">c</span> a kliknite na <strong>Nový (New)</strong> <span class="ref">d</span>. <em>Doručenie (Delivery)</em> je v ponuke len nadpis skupiny. V tej istej skupine sú aj Neoship Closure Schedules a Protocols <span class="ref">e</span>; pred ich použitím si prečítajte kapitolu 10.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť cestu cez konfiguráciu Inventára"><img src="tutorial-assets/35-settings-menu.webp" width="1440" height="1000" alt="Aplikácia Inventár s otvorenou Konfiguráciou: skupina Delivery s Delivery Methods, Neoship Closure Schedules, Neoship Protocols a Package Types nad zoznamom dopravných metód s tlačidlom New" loading="lazy"></button><figcaption><span class="fig-no">00</span>Ponuka Inventár → Konfigurácia.</figcaption></figure></li>
+      <li>Zadajte zrozumiteľný názov, napríklad „Kuriér SPS“, a nastavte <strong>Poskytovateľ (Provider) = Neoship</strong> <span class="ref">b</span>. V hlavičke ponechajte <strong>Testovacie prostredie (Test Environment)</strong> <span class="ref">a</span>. Do poľa <strong>Pevná cena (Fixed Price)</strong> <span class="ref">d</span> zadajte cenu dopravy (tu 3,90 € s DPH); je to cena v Odoo, nie cenník Neoship. <strong>Úroveň integrácie (Integration Level)</strong> <span class="ref">c</span> ponechajte na <strong>Get Rate and Create Shipment</strong>, aby validácia dodacieho listu vytvorila zásielku. Pokračujte krokom 3.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť nastavenie metódy SPS"><img src="tutorial-assets/31-sps-configuration.webp" width="1440" height="1000" alt="Metóda Kuriér SPS v testovacom prostredí, poskytovateľ Neoship, pevná cena 3,90 EUR, zakryté prihlasovacie meno, dopravca SPS, náhradná hmotnosť 1 kg, pravidlo dobierky na štítok Dobierka a potvrdenie úspešného spojenia" loading="lazy"></button><figcaption><span class="fig-no">01</span>Hotová metóda SPS; kroky 2–6 sa odvolávajú na jej písmená.</figcaption></figure></li>
+      <li>Otvorte záložku <strong>Neoship Configuration</strong> (<span class="ref">e</span> v kroku 2), zadajte testovacie meno a heslo a kliknite na <strong>Test Connection</strong> <span class="ref">f</span>. Zelená správa „Connection successful.“ potvrdí prihlásenie.</li>
+      <li>Pri <strong>Neoship Carrier</strong> kliknite na <strong>Vybrať (Choose)</strong> (<span class="ref">g</span> v kroku 2). Živý zoznam obsahuje dopravcov aktívnych na vašom účte (s cenníkom); jedna metóda v Odoo používa jedného dopravcu Neoship. Kliknite na <strong>Select</strong> pri SPS <span class="ref">a</span>. Packeta <span class="ref">b</span> otvorí ešte výber podľa krajiny (kapitola 04). <strong>Pickup Points</strong> <span class="ref">c</span> znamená, že dopravca podporuje výdajné miesta (kapitola 05).
+        <figure><button class="shot" type="button" aria-label="Zväčšiť výber dopravcu"><img src="tutorial-assets/04-carriers.webp" width="1440" height="1000" alt="Okno Choose Neoship Carrier so zoznamom 123kuriér, DPD, GLS, Packeta, SPS a Slovenská pošta s kódmi, podporou výdajných miest a tlačidlami Select" loading="lazy"></button><figcaption><span class="fig-no">02</span>Živý zoznam dopravcov testovacieho účtu.</figcaption></figure>
+        <p>Výber SPS, Packety alebo Slovenskej pošty vytvorí aj <strong>archivovaný</strong> plán uzávierky <span class="ref">a</span>, ktorý započíta tlačidlo <strong>Closure Schedules</strong> <span class="ref">b</span>; metóda má teraz uloženého dopravcu <span class="ref">c</span>. Nič sa neuzatvára, kým plán administrátor neaktivuje (kapitola 10).</p>
+        <figure><button class="shot" type="button" aria-label="Zväčšiť upozornenie na plán uzávierky"><img src="tutorial-assets/37-closure-notice.webp" width="1440" height="1000" alt="Metóda Kuriér SPS po výbere SPS s upozornením, že vznikol archivovaný plán uzávierky Neoship, a odkazom na jeho otvorenie" loading="lazy"></button><figcaption><span class="fig-no">03</span>Dopravca vybraný, archivovaný plán uzávierky vytvorený.</figcaption></figure></li>
+      <li>Ak potrebujete náhradnú hmotnosť, nastavte <strong>Neoship Default Weight</strong> (<span class="ref">h</span> v kroku 2). Hmotnosť sa určuje v poradí <strong>Hmotnosť na prepravu (Weight for shipping) → hmotnosť dodacieho listu z produktov → predvolená hmotnosť metódy</strong> a prepočíta sa na kilogramy.</li>
+      <li>V časti <strong>Cash on Delivery</strong> kliknite na <strong>Edit Domain</strong> (<span class="ref">i</span> v kroku 2) a určte, ktoré objednávky sú na dobierku; tu <strong>Tags → Tag Name = Dobierka</strong>. Uložte metódu.</li>
+    </ol>
+    <div class="callout warn"><p><strong>O dobierke rozhoduje iba pravidlo Cash on Delivery Orders</strong> (<span class="ref">i</span> v kroku 2). Štandardné políčko Odoo <strong>Cash on Delivery</strong> pri poli Poskytovateľ (Provider) s tým nesúvisí: v e-shope Odoo povoľuje zákazníkovi zvoliť platbu na dobierku pri tejto metóde. Modul Neoship ho nečíta.</p><p><strong>Bez podmienky nie je na dobierku nič.</strong> Prázdne pravidlo aj filter uložený bez podmienky znamenajú, že žiadna objednávka nie je na dobierku, a pod editorom sa zobrazí modrý pruh „No order is cash on delivery“. Editor filtra pritom ukazuje „Match all records“; platí pruh pod ním. Po nastavení odošlite jednu zaplatenú objednávku a jednu na dobierku a skontrolujte sumu dobierky.</p></div>
+    <p class="evidence">Pravidlo z tohto návodu: <code>[("tag_ids.name", "=", "Dobierka")]</code>. V produkcii použite skutočný príznak platby z vašej integrácie. Neplatné pravidlo Odoo odmietne pri uložení metódy.</p>
+  </section>
+
+  <section id="first-shipment">
+    <div class="section-head"><span class="number">03</span><h2>Odošlite prvú objednávku cez SPS</h2></div>
+    <ol class="steps">
+      <li>V <strong>Predaj (Sales) → Nový (New)</strong> vyberte zákazníka <span class="ref">a</span> a cez <strong>Add a product</strong> <span class="ref">b</span> pridajte produkty evidované na sklade <span class="ref">c</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť novú objednávku"><img src="tutorial-assets/47-new-order.webp" width="1440" height="1000" alt="Nová ponuka pre Janu Novákovú z Košíc s riadkami 2 × Káva Etiópia a 1 × Hrnček Tatry, odkaz Add a product a tlačidlo Add shipping" loading="lazy"></button><figcaption><span class="fig-no">04</span>Nová ponuka pred pridaním dopravy.</figcaption></figure>
+        <p>V záložke <strong>Ďalšie informácie (Other Info)</strong> <span class="ref">a</span> nastavte platobný štítok v poli <strong>Tags</strong> <span class="ref">b</span>. Táto objednávka má štítok <strong>Dobierka</strong>, takže ju pravidlo dobierky z kapitoly 02 (krok 6) pošle na dobierku. Objednávky z e-shopu dostanú štítok z integrácie.</p>
+        <figure><button class="shot" type="button" aria-label="Zväčšiť platobný štítok objednávky"><img src="tutorial-assets/48-order-tag.webp" width="1440" height="1000" alt="Záložka Other Info novej ponuky so štítkom Dobierka v poli Tags" loading="lazy"></button><figcaption><span class="fig-no">05</span>Platobný štítok na objednávke.</figcaption></figure></li>
+      <li>Kliknite na <strong>Pridať dopravu (Add shipping)</strong>, vyberte dopravnú metódu, ktorú ste vytvorili v kapitole 02 (tu <strong>Kuriér SPS</strong>) <span class="ref">a</span>, a kliknite na <strong>Get rate</strong> <span class="ref">b</span>. Ako Cost sa zobrazí pevná cena metódy <span class="ref">c</span>; potom kliknite na <strong>Add</strong> <span class="ref">d</span>. Ak kliknete na Add pri cene 0,00, Odoo sa opýta, či má byť doprava zadarmo — zrušte to a najprv načítajte cenu.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť okno pridania dopravy"><img src="tutorial-assets/06-shipping-wizard.webp" width="1440" height="1000" alt="Okno Add a shipping method s vybranou metódou Kuriér SPS, hmotnosťou 0,98 kg, cenou 3,90 EUR po Get rate a tlačidlom Add" loading="lazy"></button><figcaption><span class="fig-no">06</span>Pridanie dopravy.</figcaption></figure></li>
+      <li>Skontrolujte riadok dopravy <span class="ref">a</span> s cenou metódy (3,90 €) a celkovú sumu <span class="ref">b</span>, 40,60 € s DPH, ktorú pri dobierke vyberie kuriér. Potom kliknite na <strong>Potvrdiť (Confirm)</strong> <span class="ref">c</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť ponuku pred potvrdením"><img src="tutorial-assets/49-order-confirm.webp" width="1440" height="1000" alt="Ponuka pre Janu Novákovú s kávou, hrnčekom a riadkom Kuriér SPS za 3,90 EUR, celková suma 40,60 EUR a tlačidlo Confirm" loading="lazy"></button><figcaption><span class="fig-no">07</span>Ponuka s dopravou pred potvrdením.</figcaption></figure></li>
+      <li>Ponuka sa zmení na predajnú objednávku a objaví sa tlačidlo <strong>Doručenie (Delivery)</strong> <span class="ref">a</span>, ktoré otvorí dodací list.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť potvrdenú objednávku"><img src="tutorial-assets/06-order.webp" width="1440" height="1000" alt="Potvrdená objednávka S00008 pre Janu Novákovú z Košíc s dvoma balíčkami kávy, hrnčekom, riadkom Kuriér SPS a sumou 40,60 EUR" loading="lazy"></button><figcaption><span class="fig-no">08</span>Potvrdená objednávka S00008.</figcaption></figure></li>
+      <li>V záložke <strong>Operácie (Operations)</strong> skontrolujte, že množstvá zodpovedajú tomu, čo naozaj expedujete. V záložke <strong>Additional Info</strong> skontrolujte dopravcu <span class="ref">a</span> a <strong>Hmotnosť na prepravu (Weight for shipping)</strong> <span class="ref">b</span>, ktorá sa posiela dopravcovi. Potom kliknite na <strong>Validovať (Validate)</strong> <span class="ref">c</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť pripravený dodací list"><img src="tutorial-assets/07-ready.webp" width="1440" height="1000" alt="Dodací list BA/OUT/00006 v stave Ready, záložka Additional Info s dopravcom Kuriér SPS a hmotnosťou na prepravu 0,98 kg" loading="lazy"></button><figcaption><span class="fig-no">09</span>Dodací list BA/OUT/00006 pred validáciou.</figcaption></figure></li>
+      <li>Pri prvej validácii sa Odoo môže opýtať, či posielať zákazníkom SMS o dodávkach. Zvoľte <strong>Disable SMS</strong> <span class="ref">a</span> alebo <strong>Confirm</strong>; je to funkcia skladu Odoo, nie modulu Neoship, a vypnúť sa dá aj v nastaveniach Inventára.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť otázku na SMS"><img src="tutorial-assets/38-sms-prompt.webp" width="1440" height="1000" alt="Okno Odoo SMS s otázkou na potvrdenie dodacieho listu SMS správou a tlačidlami Confirm, Disable SMS a Cancel" loading="lazy"></button><figcaption><span class="fig-no">10</span>Jednorazová otázka na SMS.</figcaption></figure></li>
+      <li>Dodací list je teraz <strong>Hotovo (Done)</strong> <span class="ref">a</span>: skončil skladový presun, nie doručenie zákazníkovi. História komunikácie zaznamená dopravcu, sledovacie číslo a cenu dopravy <span class="ref">b</span> a obsahuje PDF štítok <span class="ref">c</span>. Otvorte <strong>Additional Info</strong> <span class="ref">d</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť odoslaný dodací list SPS"><img src="tutorial-assets/09-sps-created.webp" width="1440" height="1000" alt="Dokončený dodací list BA/OUT/00006 so záznamom o zásielke TX87VKD5900003QDWT a PDF štítkom Neoship v histórii komunikácie" loading="lazy"></button><figcaption><span class="fig-no">11</span>Dodací list odoslaný do Neoship.</figcaption></figure></li>
+      <li>Additional Info ukazuje sledovacie číslo <span class="ref">a</span> a stav Neoship <span class="ref">b</span>, ktorý Odoo načíta hneď po odoslaní; Exportovaná (Exported) je iný stav než Hotovo v Odoo. <strong>Update Tracking</strong> <span class="ref">f</span> ho kedykoľvek obnoví. Každý balík Neoship dodacieho listu má vlastný riadok <span class="ref">c</span> so skutočne odoslanou dobierkou <span class="ref">d</span>: 40,60 €, produkty plus doprava. <strong>Download Label Again</strong> <span class="ref">e</span> znova stiahne PDF tej istej zásielky.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť údaje zásielky SPS"><img src="tutorial-assets/10-tracking.webp" width="1440" height="1000" alt="Additional Info so sledovacím číslom TX87VKD5900003QDWT, stavom Neoship Exportovaná, skupinou Exported, tlačidlami Download Label Again a Update Tracking a riadkom balíka na celú šírku s dobierkou 40.60" loading="lazy"></button><figcaption><span class="fig-no">12</span>Údaje zásielky BA/OUT/00006.</figcaption></figure></li>
+      <li>Otvorte PDF z histórie komunikácie a vytlačte ho cez prehliadač. Príjemcu <span class="ref">a</span> porovnajte so škatuľou; SPS označí služby <span class="ref">b</span> (expres, dobierka, telefonické avízo) a referencia <span class="ref">c</span> je dodací list BA/OUT/00006.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť PDF štítok SPS"><img src="tutorial-assets/11-sps-label.webp" width="1440" height="1000" alt="Skutočný testovací štítok SPS pre Janu Novákovú, Košice, odosielateľ Zrnko s.r.o., služby Expres, COD, TEL a referencia BA-OUT-00006" loading="lazy"></button><figcaption><span class="fig-no">13</span>Štítok SPS pre dodací list BA/OUT/00006 (výrez).</figcaption></figure></li>
+    </ol>
+    <div class="callout"><p><strong>Validácia neodoslala zásielku?</strong> Dodací list je Hotovo, ale nemá sledovacie číslo. Kliknite na <strong>Odoslať dopravcovi (Send to Shipper)</strong> v hornej lište dodacieho listu. Aby sa zásielka nabudúce odoslala sama pri validácii, metóda musí mať <strong>Úroveň integrácie (Integration Level) = Get Rate and Create Shipment</strong> a typ operácie <strong>Inventár → Konfigurácia → Typy operácií (Operation Types) → Delivery Orders</strong> musí mať zapnuté <strong>Generate Shipping Labels</strong>.</p></div>
+    <p>Rovnaký postup platí aj pre ostatných dopravcov, ktorých máte na účte Neoship: pre každého vytvorte samostatnú dopravnú metódu podľa kapitoly 02.</p>
+  </section>
+
+  <section id="packeta">
+    <div class="section-head"><span class="number">04</span><h2>Packeta: služba podľa krajiny</h2></div>
+    <p>Packeta sa nastavuje inak než ostatní dopravcovia: pri doručení na adresu má pre každú krajinu vlastnú službu. Po výbere Packety ako dopravcu sa preto otvorí ešte druhý výber, v ktorom zvolíte službu pre krajinu.</p>
+    <ol class="steps">
+      <li>Na dopravnej metóde kliknite pri <strong>Neoship Carrier</strong> na <strong>Choose</strong> a vyberte <strong>Packeta</strong>. Otvorí sa druhý výber <strong>Packeta Home Delivery Carrier</strong> so službami pre jednotlivé krajiny: pre Česko riadok CZ <span class="ref">a</span> (CZ Zásilkovna domů HD, Czech Republic, CZK), pre Slovensko riadok SK Packeta Home HD <span class="ref">b</span>. Kliknite na <strong>Select</strong> <span class="ref">c</span> pri krajine, do ktorej bude metóda doručovať. Ak druhý výber zavriete bez voľby, Packeta sa neuloží; kliknite na Choose znova.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť výber služby Packety"><img src="tutorial-assets/15-packeta-country-picker.webp" width="1440" height="1000" alt="Okno Choose Packeta Home Delivery Carrier so 16 službami podľa krajiny a meny vrátane CZ Zásilkovna domů HD a SK Packeta Home HD" loading="lazy"></button><figcaption><span class="fig-no">14</span>Služby Packety na adresu podľa krajiny.</figcaption></figure></li>
+      <li>Pre každú krajinu vytvorte samostatnú metódu (tu „Packeta – doručenie domov SK“ a „… CZ“). V záložke <strong>Neoship Configuration</strong> <span class="ref">a</span> je potom uložená Packeta ako dopravca <span class="ref">b</span>, služba vybraná druhým tlačidlom <strong>Choose</strong> <span class="ref">c</span> a jej krajina <span class="ref">d</span>. Českého príjemcu na slovenskej metóde Odoo odmietne ešte pred vytvorením zásielky. Prepnutie Test / Production výber vymaže; v cieľovom prostredí vyberte znova.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť českú metódu Packeta"><img src="tutorial-assets/14-packeta-cz-config.webp" width="1440" height="1000" alt="Metóda Packeta – doručenie domov CZ s dopravcom Packeta, službou CZ Zásilkovna domů HD a krajinou Czech Republic" loading="lazy"></button><figcaption><span class="fig-no">15</span>Česká metóda Packeta.</figcaption></figure></li>
+    </ol>
+  </section>
+
+  <section id="pickup-point">
+    <div class="section-head"><span class="number">05</span><h2>Doručenie na výdajné miesto</h2></div>
+    <p>Zásielka môže ísť namiesto adresy zákazníka na výdajné miesto, napríklad do Z-BOXu. Podporujú to dopravcovia so zaškrtnutým stĺpcom <strong>Pickup Points</strong> v zozname dopravcov (kapitola 02, krok 4); na testovacom účte GLS, Packeta, SPS a Slovenská pošta.</p>
+    <p><strong>ID výdajného miesta vypĺňa integrácia e-shopu.</strong> Je to štandardný identifikátor, ktorý pre svoje výdajné miesta používa každý dopravca (napríklad číslo Z-BOXu u Packety), takže ho e-shop pozná z výberu výdajného miesta v košíku. Ručne ho zadávate len pri testovaní alebo pri výnimočnej objednávke; tak to ukazujú kroky nižšie na príklade Packety.</p>
+    <ol class="steps">
+      <li>Nájdite výdajné miesto v zozname Neoship: <a href="https://aplikacia.neoship.sk/neoship/carriers/parcelshop/">aplikacia.neoship.sk/neoship/carriers/parcelshop/</a> (testovacie prostredie: <a href="https://t-we-nshp-webapp-01-app.azurewebsites.net/neoship/carriers/parcelshop/">t-we-nshp-webapp-01-app.azurewebsites.net/neoship/carriers/parcelshop/</a>). Identifikátor dopravcu je v <strong>externom ID</strong>; interné ID riadka nezadávajte. Pre Z-BOX Žilina, Nám. Andreja Hlinku 7B (OD Mirage) je to <code>19407</code> (interné ID 40283).</li>
+      <li>Na objednávke otvorte <strong>Ďalšie informácie (Other Info)</strong> <span class="ref">a</span> a externé ID zadajte do <strong>Neoship Pickup Point ID</strong> <span class="ref">b</span>. Kým je pole prázdne, zásielka ide na adresu zákazníka.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť pole výdajného miesta na objednávke"><img src="tutorial-assets/36-pickup-point-field.webp" width="1440" height="1000" alt="Objednávka S00006, záložka Other Info so štítkom Dobierka a Neoship Pickup Point ID 19407 na konci skupiny Delivery" loading="lazy"></button><figcaption><span class="fig-no">16</span>Objednávka S00006 s výdajným miestom.</figcaption></figure></li>
+      <li>Na objednávke musí byť dopravná metóda dopravcu, ktorý výdajné miesta podporuje; v príklade „Packeta – doručenie domov SK“. Objednávku potvrďte a dodací list validujte ako v kapitole 03. Kam zásielka pôjde, určuje len ID výdajného miesta, takže adresu zákazníka neprepisujte a pri Packete nezáleží na tom, pre ktorú krajinu je metóda nastavená.</li>
+      <li>Na štítku je cieľom výdajné miesto <span class="ref">a</span>, smerovanie obsahuje ID 19407 <span class="ref">b</span> a dobierku <span class="ref">c</span> 94,50 € vyberie výdajné miesto (sledovacie číslo <code>Z2765212406</code>).
+        <figure><button class="shot" type="button" aria-label="Zväčšiť štítok Packety na výdajné miesto"><img src="tutorial-assets/26-packeta-pickup-label.webp" width="1440" height="1000" alt="Štítok Packety pre Luciu Vargovú na Z-BOX Žilina, Nám. Andreja Hlinku 7B, smerovanie V19407 a COD" loading="lazy"></button><figcaption><span class="fig-no">17</span>Štítok Packety pre Z-BOX Žilina.</figcaption></figure></li>
+    </ol>
+  </section>
+  <section id="packages-cod">
+    <div class="section-head"><span class="number">06</span><h2>Viac škatúľ a čiastočné dodávky</h2></div>
+    <h3>Viac škatúľ v jednom dodacom liste</h3>
+    <ol class="steps">
+      <li>V <strong>Inventár (Inventory) → Konfigurácia (Configuration) → Nastavenia (Settings)</strong> zapnite <strong>Balíky (Packages)</strong>. Stačí to urobiť raz.</li>
+      <li>Vytvorte a potvrďte objednávku s dopravou Neoship ako v kapitole 03 (kroky 1–4) a otvorte jej dodací list. Zatiaľ ho nevalidujte.</li>
+      <li>V záložke <strong>Operácie (Operations)</strong> kliknite na riadku na <strong>Details</strong> <span class="ref">a</span> a nastavte <strong>Destination Package</strong>: napíšte nový názov, napr. „Krabica 1/2“, a vytvorte ho. Každá vonkajšia škatuľa <span class="ref">b</span> je jeden balík Neoship; škatuľa vložená v inej škatuli ďalší nepridá. Do škatúľ dajte buď všetky produkty, alebo žiadny: dodací list, kde je časť tovaru v škatuliach a časť voľne, Odoo odmietne. <strong>Packages</strong> <span class="ref">c</span> zobrazí škatule dodacieho listu.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť dodací list s dvoma škatuľami"><img src="tutorial-assets/39-two-boxes.webp" width="1440" height="1000" alt="Dodací list BA/OUT/00011 s mlynčekom v Krabica 1/2 a darčekovou sadou v Krabica 2/2, odkazy Details a tlačidlo Packages" loading="lazy"></button><figcaption><span class="fig-no">18</span>Dva produkty v dvoch škatuliach (objednávka S00012, SPS, zaplatené kartou).</figcaption></figure></li>
+      <li>Validujte dodací list a vytlačte <strong>všetky</strong> štítky z PDF a na každú škatuľu nalepte jeden: balík 1 z 2 <span class="ref">a</span> a balík 2 z 2 <span class="ref">b</span>, každý s vlastným sledovacím číslom. Sledovacie číslo dodacieho listu obsahuje všetky čísla oddelené čiarkou.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť PDF SPS s dvoma štítkami"><img src="tutorial-assets/29-two-box-label.webp" width="1440" height="1000" alt="PDF SPS s dvoma štítkami pre Zuzanu Horváthovú, hore Balík 2 z 2 a dole Balík 1 z 2, každý s vlastným sledovacím číslom" loading="lazy"></button><figcaption><span class="fig-no">19</span>Dva štítky SPS v jednom PDF.</figcaption></figure></li>
+      <li>Jednotlivú škatuľu otvoríte tlačidlom <strong>Packages</strong> na dodacom liste: ukazuje vlastný balík so sledovacím číslom <span class="ref">a</span>, referenciou s príponou -2 pre druhú škatuľu <span class="ref">b</span> a stavom <span class="ref">c</span>. Dodací list ukazuje súhrnný stav.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť formulár balíka"><img src="tutorial-assets/41-package-tracking.webp" width="1440" height="1000" alt="Balík Krabica 2/2 s jeho balíkom Neoship: dodací list BA/OUT/00015, sledovacie číslo Z2093152254, referencia BA-OUT-00015-2 a stav Exported" loading="lazy"></button><figcaption><span class="fig-no">20</span>Škatuľa pre Packetu s vlastnou zásielkou.</figcaption></figure></li>
+    </ol>
+    <p class="evidence">Storno hlavného balíka SPS stornuje aj ďalšie kusy; pri Packete sa stornuje zásielka každej škatule.</p>
+    <h3>Dve dodávky z jednej objednávky na dobierku</h3>
+    <p>Kaviareň Pod Hradom objednala šesť 1 kg balíčkov kávy po 34,90 €: 213,30 € vrátane dopravy 3,90 €, so štítkom Dobierka (objednávka S00014). Najprv sme expedovali tri balíčky a zvyšok nechali v nedodanej časti (backorder). Každá dodávka vyberie iba to, <strong>čo naozaj doručí</strong>; nič netreba zadávať ručne.</p>
+    <ol class="steps">
+      <li>Validujte prvú čiastočnú dodávku a zvoľte <strong>Create Backorder</strong>. BA/OUT/00013 vyberie tri balíčky a riadok dopravy: 3 × 34,90 € + 3,90 € = <strong>108,60 €</strong>.</li>
+      <li>Keď je zvyšok pripravený, validujte nedodaný zvyšok. BA/OUT/00014 objednávku dokončí a vyberie zvyšok sumy objednávky: <strong>104,70 €</strong>. Obe dodávky spolu vyberú presne 213,30 €.</li>
+      <li>Sumy skontrolujete tlačidlom <strong>Neoship</strong> na objednávke: jeden balík na každú dodávku <span class="ref">c</span>, prvá dodávka <span class="ref">a</span> a nedodaný zvyšok <span class="ref">b</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť rozdelenie dobierky pri čiastočnej dodávke"><img src="tutorial-assets/21-partial-cod.webp" width="1440" height="1000" alt="Balíky Neoship objednávky S00014: BA/OUT/00014 s dobierkou 104.70 a BA/OUT/00013 s dobierkou 108.60, oba Exported" loading="lazy"></button><figcaption><span class="fig-no">21</span>Balíky Neoship objednávky S00014.</figcaption></figure></li>
+    </ol>
+    <p>Opätovné odoslanie toho istého dodacieho listu (po oprave alebo stornovanej zásielke) vypočíta rovnakú sumu. Odpočítavajú sa iba validované dodávky, takže nedodaný zvyšok, ktorý ešte čaká v sklade, sumu aktuálnej dodávky nezmení.</p>
+    <h3>Ručná suma</h3>
+    <p>Ak zákazník časť zaplatil vopred alebo ste sa dohodli na inom rozdelení, pred odoslaním (alebo po storne zásielky, kapitola 09) otvorte <strong>Additional Info</strong> <span class="ref">a</span>, zaškrtnite <strong>Manual Cash on Delivery</strong> <span class="ref">b</span> a zadajte sumu <span class="ref">c</span>; <strong>0,00</strong> odošle dodávku bez dobierky. Ručná suma nesmie byť záporná, po vytvorení zásielky sa už nedá meniť a platí iba pre tento dodací list: ostatné dodávky od neho aj tak odpočítajú jeho vypočítanú časť.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť ručnú dobierku"><img src="tutorial-assets/22-manual-cod.webp" width="1440" height="1000" alt="Dodací list BA/OUT/00014, Additional Info so zaškrtnutým Manual Cash on Delivery a sumou Cash on Delivery Amount 0.00" loading="lazy"></button><figcaption><span class="fig-no">22</span>BA/OUT/00014 po storne zásielky so 104,70 €: Send to Shipper ju teraz odošle bez dobierky.</figcaption></figure>
+    <h3>Prípady, ktoré sa oplatí poznať</h3>
+    <p>Tri situácie z bežnej praxe e-shopu.</p>
+    <h4>Najprv osobný odber, zvyšok kuriérom</h4>
+    <p>Zuzana Horváthová objednala štyri 1 kg balíčky s dopravou SPS, dobierka 143,50 € (objednávka S00019). Dva balíčky si vyzdvihla na predajni: na BA/OUT/00019 sme pred validáciou zmenili dopravcu na <strong>Osobný odber – Bratislava</strong> a na nedodanom zvyšku BA/OUT/00022 späť na <strong>Kuriér SPS</strong>.</p>
+    <p>Nedodaný zvyšok <span class="ref">a</span> ide kuriérom <strong>Kuriér SPS</strong> <span class="ref">b</span> a vyberie iba svoje dva balíčky, <strong>69,80 €</strong> <span class="ref">c</span>. Riadok dopravy patrí <strong>prvej validovanej dodávke</strong> bez ohľadu na jej dopravcu, takže sa mal zaplatiť pri osobnom odbere spolu s prvými dvoma balíčkami (73,70 €). Ak má dopravu vybrať kuriér, zadajte jeho sumu ručne.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť dodávku kuriérom po osobnom odbere"><img src="tutorial-assets/42-pickup-then-courier.webp" width="1440" height="1000" alt="Nedodaný zvyšok BA/OUT/00022 k BA/OUT/00019, dopravca Kuriér SPS, riadok balíka s dobierkou 69.80" loading="lazy"></button><figcaption><span class="fig-no">23</span>Dodávka kuriérom BA/OUT/00022 po osobnom odbere.</figcaption></figure>
+    <h4>Sada (kit) dodaná po častiach</h4>
+    <p>Darčeková sada Ráno (22,90 €) je kit: kusovník typu <em>Kit</em> s 1 × Káva Etiópia 250 g a 1 × Hrnček Tatry. Jana Nováková objednala dve sady s dopravou SPS, dobierka 49,70 € (objednávka S00020). Dodací list obsahuje komponenty <span class="ref">a</span>, nie sadu, a pripravený bol iba jeden hrnček <span class="ref">b</span>: prvá dodávka obsahuje jednu celú sadu a jednu kávu navyše.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť komponenty sady na dodacom liste"><img src="tutorial-assets/43-kit-components.webp" width="1440" height="1000" alt="Dodací list BA/OUT/00020 s komponentmi sady: Káva Etiópia požadované 2, množstvo 2, Hrnček Tatry požadované 2, množstvo 1" loading="lazy"></button><figcaption><span class="fig-no">24</span>Komponenty sady na BA/OUT/00020.</figcaption></figure>
+    <p>Dobierka počíta iba <strong>celé sady</strong>: prvá dodávka <span class="ref">a</span> vyberie jednu sadu a dopravu, 26,80 €; nedodaný zvyšok <span class="ref">b</span> dokončí druhú sadu a vyberie 22,90 €, čím sa zaplatí aj káva navyše. Spolu 49,70 €.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť rozdelenie dobierky pri sade"><img src="tutorial-assets/44-kit-cod.webp" width="1440" height="1000" alt="Balíky Neoship objednávky S00020: BA/OUT/00023 s dobierkou 22.90 a BA/OUT/00020 s dobierkou 26.80" loading="lazy"></button><figcaption><span class="fig-no">25</span>Balíky Neoship objednávky so sadou S00020.</figcaption></figure>
+    <p class="evidence">Sady vyžadujú Výrobu a Predaj; prepojovací modul <em>Neoship Shipping - Kits</em> sa s nimi nainštaluje automaticky. Bez neho Odoo dobierku sady dodanej ako komponenty nevypočíta a vyžiada ručnú sumu.</p>
+    <h4>Zľava väčšia než prvá dodávka</h4>
+    <p>Tomáš Šimko objednal tri hrnčeky s dopravou SPS a dostal pevnú zľavu 20 € cez tlačidlo <strong>Discount</strong> na objednávke <span class="ref">a</span>: dobierka 22,60 € <span class="ref">b</span> (objednávka S00021). Zľava je rovnako ako doprava riadok služby, takže patrí prvej dodávke. Prvá dodávka obsahovala jeden hrnček: 12,90 € + 3,90 € − 20,00 € = −3,20 €.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť objednávku so zľavou"><img src="tutorial-assets/45-discount-order.webp" width="1440" height="1000" alt="Objednávka S00021: 3 × Hrnček Tatry, Kuriér SPS 3.90, Discount −20.00, spolu 22.60" loading="lazy"></button><figcaption><span class="fig-no">26</span>Objednávka S00021 s riadkom zľavy.</figcaption></figure>
+    <p>Balík nemôže vybrať zápornú sumu: prvá dodávka <span class="ref">a</span> odíde <strong>bez dobierky</strong> a 3,20 € sa odpočíta od ďalšej dodávky <span class="ref">b</span>, ktorá vyberie 25,80 € − 3,20 € = <strong>22,60 €</strong>, presne sumu objednávky. Nič netreba zadávať ručne. Ručnú sumu Odoo vyžiada iba vtedy, keď by bola záporná dodávka, ktorá objednávku dokončuje, teda keď zľavy prevyšujú všetko, čo ešte treba vybrať.</p>
+    <figure><button class="shot" type="button" aria-label="Zväčšiť rozdelenie dobierky pri zľave"><img src="tutorial-assets/46-discount-cod.webp" width="1440" height="1000" alt="Balíky Neoship objednávky S00021: BA/OUT/00025 s dobierkou 22.60 a BA/OUT/00021 s dobierkou 0.00" loading="lazy"></button><figcaption><span class="fig-no">27</span>Balíky Neoship objednávky so zľavou S00021.</figcaption></figure>
+  </section>
+
+  <section id="errors">
+    <div class="section-head"><span class="number">07</span><h2>Opravte údaje a bezpečne zopakujte</h2></div>
+    <p>Ak Odoo alebo dopravca zásielku odmietne, prečítajte si správu, opravte údaje a validujte <strong>ten istý dodací list</strong> znova. Nevytvárajte novú objednávku len preto, aby ste zopakovali odoslanie.</p>
+    <div class="table-wrap"><table>
+      <thead><tr><th scope="col">Príklad</th><th scope="col">Čo urobiť</th></tr></thead>
+      <tbody>
+        <tr><td>Chýba PSČ, e-mail alebo telefón</td><td>Doplňte kontakt. Odoo vypíše chýbajúce polia (napr. „Recipient … is missing: ZIP, email, phone“) ešte pred volaním Neoship.</td></tr>
+        <tr><td>Škatuľa pre Packetu nad 15 kg alebo bez kladnej hmotnosti</td><td>Rozdeľte tovar do škatúľ s najviac 15 kg alebo opravte <strong>Weight for shipping</strong>. Odoo kontroluje <code>0 &lt; hmotnosť ≤ 15</code> pre každú škatuľu pred volaním Neoship.</td></tr>
+        <tr><td>Časť produktov v škatuliach, časť voľne</td><td>Dajte do škatúľ všetky produkty, alebo žiadny.</td></tr>
+        <tr><td>Český príjemca na SK metóde Packety na adresu</td><td>Vyberte CZ metódu. Skutočnú krajinu príjemcu nemeňte len preto, aby požiadavka prešla.</td></tr>
+        <tr><td>Dobierka dodávky, ktorá objednávku dokončuje, by vyšla záporná, lebo zľavy prevyšujú zvyšok objednávky</td><td>Na dodacom liste zapnite <strong>Manual Cash on Delivery</strong> a zadajte sumu, ktorá sa má vybrať.</td></tr>
+        <tr><td>Mena alebo krajina dobierky nie je povolená</td><td>Dohodnite spôsob platby alebo požiadajte Neoship o nastavenie účtu; potom zopakujte ten istý dodací list.</td></tr>
+        <tr><td>Výdajné miesto neexistuje</td><td>Vyberte aktuálne platné ID výdajného miesta u dopravcu.</td></tr>
+        <tr><td>Dopravca nie je v cenníku účtu</td><td>Použite povolenú metódu alebo požiadajte Neoship o pridanie dopravcu na účet.</td></tr>
+        <tr><td>Timeout / neistý výsledok</td><td>Počkajte minútu a validujte ten istý dodací list znova. Modul najprv vyhľadá stálu referenciu a použije existujúcu zhodnú zásielku.</td></tr>
+      </tbody>
+    </table></div>
+    <h3>Príklad: škatuľa pre Packetu nad 15 kg</h3>
+    <ol class="steps">
+      <li>Pätnásť 1 kg balíčkov váži po zabalení 15,75 kg. Validácia zastaví ešte pred volaním Neoship <span class="ref">a</span>; kliknite na <strong>Close</strong> <span class="ref">b</span>.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť chybu hmotnosti Packety"><img src="tutorial-assets/27-overweight-error.webp" width="1440" height="1000" alt="Invalid Operation: Packeta needs a weight between 0 and 15.0 kg, transfer BA/OUT/00016 has 15.75 kg" loading="lazy"></button><figcaption><span class="fig-no">28</span>Limit hmotnosti Packety na BA/OUT/00016.</figcaption></figure></li>
+      <li>Rozdeľte tovar do škatúľ s najviac 15 kg: v Details riadku kávy dajte 8 balíčkov do Krabica 1/2 <span class="ref">a</span> a pridajte riadok so zvyšnými 7 balíčkami v Krabica 2/2 <span class="ref">b</span>. V Odoo 19 sa <strong>Add a line</strong> najprv opýta na skladové miesto (BA/Stock). Uložte <span class="ref">c</span> a validujte ten istý dodací list znova: odišiel ako dve zásielky Packety s 8,40 kg a 7,35 kg.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť rozdelenie do škatúľ"><img src="tutorial-assets/40-split-boxes.webp" width="1440" height="1000" alt="Detailed Operations riadku kávy: 8 balíčkov v Krabica 1/2 a druhý riadok so 7 balíčkami v Krabica 2/2" loading="lazy"></button><figcaption><span class="fig-no">29</span>Oprava na rovnakej objednávke BA/OUT/00015.</figcaption></figure></li>
+    </ol>
+    <div class="callout warn"><p><strong>Prijaté neznamená vždy platné.</strong> Modul kontroluje, či je telefón vyplnený, ale neoveruje formát podľa krajiny. Kontakty skontrolujte pred expedíciou; GLS môže odmietnuť číslo, ktoré SPS prijme.</p></div>
+    <details><summary>Prečo opakovanie bežne nevytvorí duplicitu</summary><p>Stálou referenciou je názov dodacieho listu, napríklad <code>BA-OUT-00006</code> (v databáze s viacerými firmami s predponou firmy, napr. <code>C1-</code>). Pred vytvorením zásielky ju modul vyhľadá. Zhodnú vytlačenú zásielku použije znova, zásielku so zmenenými údajmi stornuje a nahradí, nevytlačený odmietnutý balík pred opakovaním vymaže. Viac vytlačených zásielok s rovnakou referenciou treba preveriť ručne: Neoship jedinečnosť referencie nezaručuje. Ak storno zlyhá, zastavte sa a zistite príčinu; náhradu nevynucujte.</p></details>
+  </section>
+
+  <section id="tracking">
+    <div class="section-head"><span class="number">08</span><h2>Štítky, sledovanie a denný prehľad podpory</h2></div>
+    <ol class="steps">
+      <li>Na objednávke kliknite na tlačidlo <strong>Neoship</strong>. Zobrazí balíky Neoship objednávky s dodacím listom, sledovacím číslom <span class="ref">a</span>, stavom doručenia <span class="ref">b</span> (oddelene od skladového stavu) a skutočne odoslanou dobierkou <span class="ref">c</span>. Stornované zásielky zo zoznamu zmiznú.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť zoznam zásielok objednávky"><img src="tutorial-assets/12-order-shipments.webp" width="1440" height="1000" alt="Zoznam Neoship Parcels z objednávky S00008: BA/OUT/00006, TX87VKD5900003QDWT, dobierka 40.60, Exportovaná, Exported, tlačidlá Label a Tracking" loading="lazy"></button><figcaption><span class="fig-no">30</span>Balíky Neoship objednávky S00008.</figcaption></figure></li>
+      <li>Kliknite na <strong>Label</strong> <span class="ref">d</span> a otvoríte uložené PDF, alebo na <strong>Tracking</strong> <span class="ref">e</span> a otvoríte stránku sledovania Neoship (testovacie prostredie: <code>t-we-nshp-webapp-01-app.azurewebsites.net/tracking/&lt;číslo&gt;/</code>).</li>
+      <li>Ak štítok chýba alebo ho treba vytlačiť znova, otvorte na dodacom liste <strong>Additional Info → Download Label Again</strong>. Stiahne štítok tej istej zásielky a znova ho priloží; sledovacie číslo sa nemení.</li>
+      <li>Stav Neoship načíta Odoo hneď po odoslaní, takže nová zásielka ho má od začiatku (zvyčajne Exportovaná). Ďalšie zmeny stavu načíta naplánovaná úloha; kliknite na <strong>Update Tracking</strong> pre okamžité obnovenie, aj keď sa stav pri odoslaní nepodarilo načítať.</li>
+      <li>V <strong>Inventár (Inventory) → Operácie (Operations) → Dodávky (Deliveries)</strong> otvorte možnosti vyhľadávania <span class="ref">a</span>. Filtre Neoship <span class="ref">b</span> vyberajú dodávky podľa stavu doručenia, nie skladového stavu: <strong>Neoship: Not Delivered</strong> a <strong>Neoship: Returned</strong> <span class="ref">c</span> nájdu problémové zásielky a <strong>Group By → Neoship Delivery</strong> <span class="ref">d</span> ich zoskupí podľa stavu doručenia.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť filtre Neoship"><img src="tutorial-assets/28-tracking-filters.webp" width="1440" height="1000" alt="Ponuka vyhľadávania v Deliveries s filtrami Neoship New, Exported, In Transit, Delivered, Not Delivered, Returned, Cancelled a zoskupením Neoship Delivery" loading="lazy"></button><figcaption><span class="fig-no">31</span>Filtre stavu doručenia v zozname dodávok.</figcaption></figure></li>
+    </ol>
+    <div class="callout"><p><strong>Hotovo ≠ doručené.</strong> Hotovo (Done) v Odoo znamená dokončený skladový presun. Neoship samostatne hlási New, Exported, In Transit, Delivered, Not Delivered, Returned alebo Cancelled. Čerstvo vytlačený štítok je preto v Odoo Hotovo a v Neoship Exportovaná. Pri viacerých škatuliach ukazuje dodací list súhrnný stav a každá škatuľa svoj vlastný.</p><p>Naplánovaná úloha <em>Neoship: Update Tracking</em> beží každé tri hodiny, nominálne o :30 UTC, po dávkach 100 a najviac 500 balíkov na beh; balík synchronizovaný za poslednú hodinu preskočí. Sledovanie skončí pri Delivered / Returned / Cancelled alebo po 30 dňoch bez zmeny stavu (systémový parameter <code>delivery_neoship.tracking_days</code>).</p></div>
+  </section>
+
+  <section id="cancellation">
+    <div class="section-head"><span class="number">09</span><h2>Stornujte zásielku, nie skladovú históriu</h2></div>
+    <ol class="steps">
+      <li>Na dodacom liste otvorte <strong>Additional Info</strong> <span class="ref">a</span>, kliknite na <strong>Cancel</strong> <span class="ref">b</span> pod Tracking Reference a otázku Odoo „Cancelling a delivery may not be undoable“ potvrďte tlačidlom <strong>Ok</strong>. Stornuje sa zásielka, nie predajná objednávka. Po úspešnom storne riadky balíkov <span class="ref">c</span> aj sledovacie číslo zmiznú; pri viacerých škatuliach sa stornujú všetky kusy.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť storno zásielky"><img src="tutorial-assets/13-cancel-shipment.webp" width="1440" height="1000" alt="Additional Info dodacieho listu SPS s odkazom Cancel pod sledovacím číslom a riadkom balíka, ktorý sa stornuje" loading="lazy"></button><figcaption><span class="fig-no">32</span>Storno zásielky BA/OUT/00006.</figcaption></figure></li>
+      <li>V histórii komunikácie skontrolujte poznámku „Shipment … cancelled“ <span class="ref">a</span>. Staršie PDF prílohy <span class="ref">b</span> zostanú; stornovaný štítok nepoužívajte znova. Dodací list zostane <strong>Hotovo (Done)</strong> <span class="ref">c</span>, lebo storno zásielky nezvráti skladový pohyb. Sledovacie číslo <span class="ref">d</span> je prázdne a <strong>Send to Shipper</strong> <span class="ref">e</span> vytvorí novú zásielku s tou istou referenciou, ak ju potrebujete. Vrátenia a opravy skladu riešte bežným postupom Odoo.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť stornovaný dodací list"><img src="tutorial-assets/30-cancelled.webp" width="1440" height="1000" alt="Dodací list BA/OUT/00006 stále Done s prázdnym sledovacím číslom, tlačidlom Send to Shipper a poznámkou o storne zásielky TX87VKD5900003QDWT so staršími PDF štítkami" loading="lazy"></button><figcaption><span class="fig-no">33</span>BA/OUT/00006 po skutočnom storne.</figcaption></figure></li>
+    </ol>
+    <div class="callout warn"><p><strong>Ak balík už prevzal dopravca,</strong> Neoship storno odmietne. Modul ponechá tento balík so sledovacím číslom a chybou v zozname balíkov, zobrazí upozornenie a na dodací list zapíše poznámku; fyzickú zásielku riešte s podporou Neoship.</p><p>Kým má niektorý dodací list objednávky zásielku Neoship, objednávku nezrušíte: Odoo vypíše dodacie listy so sledovacími číslami a vyzve vás najprv stornovať zásielky (<strong>Additional Info → Cancel</strong> na dodacom liste). Zásielka, ktorej storno Neoship odmietol, zrušenie objednávky neblokuje.</p></div>
+    <p>Neoship označí stornovaný balík stavom „Stornovať“ a jeho referenciu premenuje na <code>X&lt;referencia&gt;</code>, takže ten istý dodací list sa dá odoslať znova s pôvodnou referenciou.</p>
+  </section>
+
+  <section id="closures">
+    <div class="section-head"><span class="number">10</span><h2>Nastavte uzávierky a nájdite protokoly</h2></div>
+    <div class="callout danger"><p><strong>Operácia pre celý účet.</strong> Uzávierka zahŕňa <strong>všetky zásielky účtu Neoship u daného dopravcu</strong>, aj balíky vytvorené mimo Odoo. Na zdieľanom testovacom účte neklikajte na Close Now ani neaktivujte plán bez súhlasu jeho vlastníka.</p></div>
+    <ol class="steps">
+      <li>Ako administrátor otvorte <strong>Inventár (Inventory) → Konfigurácia (Configuration) → Doručenie (Delivery) → Neoship Closure Schedules</strong> alebo tlačidlo <strong>Closure Schedules</strong> na dopravnej metóde.</li>
+      <li>Výber SPS, Packety alebo Slovenskej pošty na metóde vytvorí predvolený <strong>archivovaný</strong> plán: pondelok–piatok o 15:00 v časovom pásme používateľa. Pre jeden účet, prostredie a dopravcu vznikne iba jeden; ďalšia metóda s tým istým dopravcom, napr. Packeta (CZ), nový plán nevytvorí.</li>
+      <li>Prečítajte si upozornenie na celý účet <span class="ref">a</span>. Skontrolujte dopravnú metódu, dni zvozu, čas a časové pásmo <span class="ref">c</span>; tu <strong>Europe/Bratislava</strong>. <strong>Active</strong> <span class="ref">b</span> nechajte vypnuté, kým nie je zvoz dohodnutý.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť archivovaný plán uzávierky"><img src="tutorial-assets/24-closure-schedule.webp" width="1440" height="1000" alt="Archivovaný plán uzávierky Kuriér SPS o 15:00 pondelok až piatok v Europe/Bratislava s upozornením na celý účet, Close Now a Protocols 0" loading="lazy"></button><figcaption><span class="fig-no">34</span>Plán vytvorený pri výbere SPS: archivovaný, bez Next Run.</figcaption></figure></li>
+      <li>Aktivovaný plán si vypočíta <strong>Next Run</strong> a v tom čase spustí spoločnú úlohu <em>Neoship: Closures</em> (záložne beží aj každú hodinu). V nezaškrtnutý deň sa uzávierka preskočí, rovnako ak bol ten istý účet uzavretý za posledných 10 minút. <strong>Close Now</strong> (<span class="ref">d</span> v kroku 3) hneď spustí ručnú uzávierku celého účtu. Packeta uzatvára podľa dátumu a zahrnie balíky od poslednej uzávierky, najviac 7 dní dozadu.</li>
+      <li>Otvorte <strong>Neoship Protocols</strong> v <strong>Inventár (Inventory) → Operácie (Operations)</strong> alebo v Konfigurácii, prípadne <strong>Protocols</strong> (<span class="ref">e</span> v kroku 3) na pláne. Každý beh sa zapíše ako riadok s výsledkom <strong>Closed</strong>, <strong>Nothing to Close</strong> alebo <strong>Failed</strong> <span class="ref">a</span>; ak dopravca vráti protokol, stiahnite PDF <span class="ref">b</span>. Protokol Packety je dodací list so zoznamom zásielok: referencia, čiarový kód, príjemca a dobierka. Úspešná uzávierka Slovenskej pošty môže mať zoznam balíkov bez PDF.
+        <figure><button class="shot" type="button" aria-label="Zväčšiť zoznam protokolov"><img src="tutorial-assets/25-protocol-history.webp" width="1440" height="1000" alt="Zoznam Neoship Protocols s jedným riadkom: Packeta – doručenie domov SK, Packeta, výsledok Closed a PDF Packeta-protocol-2026-10-12.pdf" loading="lazy"></button><figcaption><span class="fig-no">35</span>Uzávierka Packety spustená cez Close Now, s PDF protokolom.</figcaption></figure></li>
+    </ol>
+  </section>
+
+  <footer>Screenshoty z testovacieho API Neoship · <code>delivery_neoship</code> 19.0.0.1.1, <code>delivery_neoship_mrp</code> 19.0.0.1.0 · 12. októbra 2026</footer>
+</main>
+<dialog id="lightbox" aria-label="Zväčšený obrázok"><div class="lightbox-head"><p></p><button type="button">Zavrieť</button></div><img alt=""></dialog>
+</body>
+</html>
