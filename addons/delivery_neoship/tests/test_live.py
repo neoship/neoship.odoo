@@ -1,5 +1,6 @@
 import os
 import unittest
+from dataclasses import asdict
 
 from odoo.tests import BaseCase, TransactionCase, tagged
 
@@ -76,7 +77,9 @@ class TestNeoshipLiveShipment(TransactionCase):
         )
         with carrier._neoship_client() as client:
             sps = next(shipper for shipper in client.get_active_shippers() if shipper.shortcut == 'SPS')
-        carrier._neoship_set_shipper(sps.id, sps.shortcut, sps.name)
+        carrier._neoship_set_shipper(
+            sps.id, sps.shortcut, sps.name, print_formats=[asdict(print_format) for print_format in sps.print_formats]
+        )
         product = self.env['product.product'].create({'name': 'Live test item', 'type': 'consu', 'weight': 0.5})
         picking = self.env['stock.picking'].create(
             {

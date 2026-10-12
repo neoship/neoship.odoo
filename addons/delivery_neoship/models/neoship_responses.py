@@ -6,11 +6,29 @@ def _float(value):
 
 
 @dataclass(frozen=True)
+class PrintFormat:
+    code: str
+    name: str
+    supports_position: bool = True
+    pickup_point_only: bool = False
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(
+            code=data['code'],
+            name=data.get('name') or data['code'],
+            supports_position=bool(data.get('supports_position', True)),
+            pickup_point_only=bool(data.get('pickup_point_only')),
+        )
+
+
+@dataclass(frozen=True)
 class Shipper:
     id: int
     name: str
     shortcut: str
     delivery_types: tuple[str, ...] = ()
+    print_formats: tuple[PrintFormat, ...] = ()
 
     @classmethod
     def from_json(cls, data):
@@ -19,6 +37,7 @@ class Shipper:
             name=data['name'],
             shortcut=data['shortcut'],
             delivery_types=tuple(delivery_type['type'] for delivery_type in data.get('delivery_types') or ()),
+            print_formats=tuple(PrintFormat.from_json(item) for item in data.get('print_formats') or ()),
         )
 
 

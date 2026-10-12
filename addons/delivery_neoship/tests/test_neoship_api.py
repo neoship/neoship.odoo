@@ -15,6 +15,7 @@ from odoo.addons.delivery_neoship.models.neoship_api import (
     NeoshipTimeout,
     clear_token_cache,
 )
+from odoo.addons.delivery_neoship.models.neoship_responses import PrintFormat
 
 from .common import login_ok, make_response, mock_neoship
 
@@ -36,6 +37,34 @@ class TestNeoshipClient(BaseCase):
         client = NeoshipClient('https://neoship.test/api/', 'user@example.com', password)
         self.addCleanup(client.close)
         return client
+
+    def test_active_shippers_include_label_formats_in_the_requested_language(self):
+        client = NeoshipClient('https://neoship.test/api/', 'user@example.com', 'secret-password', language='sk_SK')
+        self.addCleanup(client.close)
+        shipper = {
+            'id': 3,
+            'name': 'Packeta',
+            'shortcut': 'Packeta',
+            'print_formats': [
+                {'code': 'A6 on A4', 'name': 'A6 na A4', 'supports_position': True, 'pickup_point_only': False},
+                {'code': 'A8 on A8', 'name': 'A8 na A8', 'supports_position': True, 'pickup_point_only': True},
+            ],
+        }
+        with mock_neoship(login_ok(), make_response(json_data=[shipper])) as calls:
+            shippers = client.get_active_shippers()
+
+        self.assertEqual(calls[-1]['headers']['Accept-Language'], 'sk-SK')
+        self.assertEqual(
+            shippers[0].print_formats,
+            (
+                PrintFormat('A6 on A4', 'A6 na A4', supports_position=True, pickup_point_only=False),
+                PrintFormat('A8 on A8', 'A8 na A8', supports_position=True, pickup_point_only=True),
+            ),
+        )
+
+    def test_shipper_without_label_formats_has_none(self):
+        with mock_neoship(login_ok(), make_response(json_data=[{'id': 4, 'name': '123', 'shortcut': '123'}])):
+            self.assertEqual(self.client.get_active_shippers()[0].print_formats, ())
 
     def test_valid_token_is_reused_by_the_next_client(self):
         token = jwt(3600)

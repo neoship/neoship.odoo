@@ -58,6 +58,18 @@ class DeliveryCarrier(models.Model):
         readonly=True,
         help='Country of the Packeta home delivery carrier. Recipients in other countries are refused before sending.',
     )
+    neoship_label_format = fields.Char(string='Label Format Code', readonly=True)
+    neoship_label_format_name = fields.Char(
+        string='Label Format',
+        readonly=True,
+        help='Format of the shipping labels, from the formats Neoship offers for the carrier. '
+        'It is fixed when the shipment is created.',
+    )
+    neoship_label_format_fallback = fields.Char(
+        string='Address Label Format Code',
+        readonly=True,
+        help='Used for shipments to an address when the label format prints only pickup point shipments.',
+    )
     neoship_default_weight = fields.Float(
         digits='Stock Weight',
         help='Used when the delivery order has no weight.',
@@ -176,6 +188,7 @@ class DeliveryCarrier(models.Model):
             PROD_URL if prod_environment else TEST_URL,
             carrier.neoship_username,
             carrier.neoship_password,
+            language=self.env.lang,
             **({'timeout': timeout} if timeout else {}),
         )
 
@@ -241,6 +254,7 @@ class DeliveryCarrier(models.Model):
                 'name': shipper.name,
                 'code': shipper.shortcut,
                 'supports_parcelshops': const.SHIPPER_DELIVERY_TYPE_PARCELSHOP in shipper.delivery_types,
+                'print_formats': [asdict(print_format) for print_format in shipper.print_formats],
             }
             for shipper in shippers
         ]
@@ -249,7 +263,9 @@ class DeliveryCarrier(models.Model):
     def action_neoship_choose_carrier_type(self):
         return self._neoship_open_carrier_type_wizard()
 
-    def _neoship_open_carrier_type_wizard(self, shipper_id=False, shipper_code=False, shipper_name=False):
+    def _neoship_open_carrier_type_wizard(
+        self, shipper_id=False, shipper_code=False, shipper_name=False, print_formats=None
+    ):
         carriers = self._neoship_fetch(lambda client: client.get_packeta_carriers())
         countries = self.env['res.country'].search([('code', 'in', [carrier.state_code for carrier in carriers])])
         country_ids = {country.code: country.id for country in countries}
@@ -266,7 +282,38 @@ class DeliveryCarrier(models.Model):
             const.OPTION_KIND_CARRIER_TYPE,
             lines,
             self.env._('Choose Packeta Home Delivery Carrier'),
-            {'shipper_id': shipper_id, 'shipper_code': shipper_code, 'shipper_name': shipper_name},
+            {
+                'shipper_id': shipper_id,
+                'shipper_code': shipper_code,
+                'shipper_name': shipper_name,
+                'print_formats': print_formats,
+            },
+        )
+
+    def action_neoship_choose_label_format(self):
+        self.ensure_one()
+        shippers = self._neoship_fetch(lambda client: client.get_active_shippers())
+        shipper = next((shipper for shipper in shippers if shipper.id == self.neoship_shipper_id), None)
+        if not shipper or not shipper.print_formats:
+            raise UserError(
+                self.env._('Neoship offers no label formats for carrier %s.', self.neoship_shipper_name or self.name)
+            )
+        print_formats = [asdict(print_format) for print_format in shipper.print_formats]
+        lines = [
+            {
+                'sequence': index,
+                'value': index,
+                'name': print_format['name'],
+                'code': print_format['code'],
+                'pickup_point_only': print_format['pickup_point_only'],
+            }
+            for index, print_format in enumerate(print_formats)
+        ]
+        return self._neoship_open_option_wizard(
+            const.OPTION_KIND_LABEL_FORMAT,
+            lines,
+            self.env._('Choose Label Format'),
+            {'print_formats': print_formats},
         )
 
     def _neoship_fetch(self, call, prod_environment=None):
@@ -296,18 +343,46 @@ class DeliveryCarrier(models.Model):
         }
 
     def _neoship_set_shipper(
-        self, shipper_id, code, name, carrier_type=False, carrier_type_name=False, carrier_type_country_id=False
+        self,
+        shipper_id,
+        code,
+        name,
+        carrier_type=False,
+        carrier_type_name=False,
+        carrier_type_country_id=False,
+        print_formats=None,
     ):
         changed = self.filtered(lambda carrier: carrier.neoship_shipper_id != (shipper_id or 0))
-        self.write(
-            {
-                'neoship_shipper_id': shipper_id,
-                'neoship_shipper_code': code,
-                'neoship_shipper_name': name,
-                **self._neoship_carrier_type_values(carrier_type, carrier_type_name, carrier_type_country_id),
-            }
-        )
+        for carrier in self:
+            carrier.write(
+                {
+                    'neoship_shipper_id': shipper_id,
+                    'neoship_shipper_code': code,
+                    'neoship_shipper_name': name,
+                    **self._neoship_carrier_type_values(carrier_type, carrier_type_name, carrier_type_country_id),
+                    **self._neoship_label_format_values(print_formats, carrier.neoship_label_format),
+                }
+            )
         return changed._neoship_reset_closure_schedules()
+
+    @api.model
+    def _neoship_label_format_values(self, print_formats, code=False):
+        print_formats = print_formats or []
+        address_format = next((item for item in print_formats if not item['pickup_point_only']), None)
+        chosen = next((item for item in print_formats if item['code'] == code), None) or address_format
+        return {
+            'neoship_label_format': chosen['code'] if chosen else False,
+            'neoship_label_format_name': chosen['name'] if chosen else False,
+            'neoship_label_format_fallback': (
+                address_format['code'] if chosen and chosen['pickup_point_only'] and address_format else False
+            ),
+        }
+
+    def _neoship_print_type(self, pickup_point):
+        self.ensure_one()
+        if self.neoship_label_format_fallback and not pickup_point:
+            return self.neoship_label_format_fallback
+        return self.neoship_label_format or None
 
     def _neoship_reset_closure_schedules(self):
         schedules = self.env['neoship.closure.schedule'].sudo().with_context(active_test=False)
@@ -528,7 +603,7 @@ class DeliveryCarrier(models.Model):
 
     def _neoship_create(self, client, packages):
         try:
-            print_type = const.LABEL_PRINT_TYPES.get(neoship_shipper_key(self.neoship_shipper_code))
+            print_type = self._neoship_print_type(bool(packages[0].get('parcelshop')))
             return client.create_packages(self.neoship_shipper_id, packages, print_type)
         except NeoshipTimeout as e:
             raise UserError(

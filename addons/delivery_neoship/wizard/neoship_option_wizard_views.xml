@@ -7,11 +7,13 @@
             <form>
                 <field name="carrier_id" invisible="1"/>
                 <field name="kind" invisible="1"/>
+                <field name="has_pickup_point_only" invisible="1"/>
                 <field name="line_ids" readonly="1">
                     <list>
                         <field name="name"/>
-                        <field name="code" column_invisible="parent.kind != 'shipper'"/>
+                        <field name="code" column_invisible="parent.kind not in ('shipper', 'label_format')"/>
                         <field name="supports_parcelshops" column_invisible="parent.kind != 'shipper'"/>
+                        <field name="pickup_point_only" column_invisible="not parent.has_pickup_point_only"/>
                         <field name="country_id" column_invisible="parent.kind != 'carrier_type'"/>
                         <field name="currency" column_invisible="parent.kind != 'carrier_type'"/>
                         <button name="action_select" type="object" string="Select" class="btn-primary"/>
