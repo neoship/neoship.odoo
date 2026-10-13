@@ -127,7 +127,7 @@ class DeliveryCarrier(models.Model):
         for carrier in self.filtered('neoship_cod_domain'):
             try:
                 Domain(safe_eval(carrier.neoship_cod_domain, carrier._neoship_cod_eval_context())).validate(orders)
-            except (ValueError, TypeError) as e:
+            except (SyntaxError, NameError, ValueError, TypeError, ZeroDivisionError) as e:
                 raise ValidationError(
                     self.env._(
                         'The cash on delivery filter on delivery method %(method)s is invalid: %(error)s',
@@ -139,6 +139,10 @@ class DeliveryCarrier(models.Model):
     def _neoship_ignores_package_count(self):
         self.ensure_one()
         return neoship_shipper_key(self.neoship_shipper_code) in const.SHIPPER_CODES_SHIPMENT_PER_PACK
+
+    def _neoship_numeric_cod_reference(self):
+        self.ensure_one()
+        return neoship_shipper_key(self.neoship_shipper_code) in const.SHIPPER_CODES_NUMERIC_COD_REFERENCE
 
     @api.model
     def _neoship_requires_carrier_type(self, shipper_code):
@@ -221,7 +225,48 @@ class DeliveryCarrier(models.Model):
             return self.env._('Neoship rejected the login: %s', error)
         if isinstance(error, NeoshipResponseError):
             return self.env._('Neoship returned a response that cannot be processed: %s', error)
+        if error.field_errors:
+            return self.env._(
+                'Neoship rejected the shipment data: %s',
+                '; '.join(
+                    f'{self._neoship_field_label(field)}: {message}' if field else message
+                    for field, message in error.field_errors
+                ),
+            )
         return self.env._('Neoship returned an error: %s', error)
+
+    def _neoship_address_labels(self):
+        return {
+            'name': self.env._('name'),
+            'company': self.env._('company'),
+            'street': self.env._('street'),
+            'city': self.env._('city'),
+            'zip': self.env._('ZIP'),
+            'state_code': self.env._('country'),
+            'email': self.env._('email'),
+            'phone': self.env._('phone'),
+        }
+
+    def _neoship_field_label(self, field):
+        labels = {
+            'reference_number': self.env._('Reference'),
+            'weight': self.env._('Weight'),
+            'count_of_packages': self.env._('Number of parcels'),
+            'parcelshop': self.env._('Pickup point'),
+            'carrier_type': self.env._('Packeta carrier'),
+            'cod_price': self.env._('Cash on delivery amount'),
+            'cod_currency_code': self.env._('Cash on delivery currency'),
+            'cod_reference': self.env._('Cash on delivery reference'),
+        }
+        if field in labels:
+            return labels[field]
+        address_labels = self._neoship_address_labels()
+        prefix, _sep, key = field.partition('_')
+        if key in address_labels and prefix == 'sender':
+            return self.env._('Sender %s', address_labels[key])
+        if key in address_labels and prefix == 'receiver':
+            return self.env._('Recipient %s', address_labels[key])
+        return field
 
     def _neoship_user_error(self, error):
         return UserError(self._neoship_error_message(error))
@@ -292,6 +337,8 @@ class DeliveryCarrier(models.Model):
 
     def action_neoship_choose_label_format(self):
         self.ensure_one()
+        if not self.neoship_shipper_id:
+            raise UserError(self.env._('Choose the Neoship carrier on delivery method %s.', self.name))
         shippers = self._neoship_fetch(lambda client: client.get_active_shippers())
         shipper = next((shipper for shipper in shippers if shipper.id == self.neoship_shipper_id), None)
         if not shipper or not shipper.print_formats:
@@ -475,10 +522,11 @@ class DeliveryCarrier(models.Model):
         main = packages[0]
         picking._neoship_check_references_free(packages)
         with self._neoship_client() as client:
-            shipments = self._neoship_find_or_create(client, picking, packages)
+            currency = self._neoship_set_cod_currency(client, picking, packages)
+            shipments = self._neoship_find_or_create(client, picking, packages, currency)
             parcels = self._neoship_parcels(client, shipments, main.get('count_of_packages', 1))
             tracking_number = ','.join(parcel.tracking_number for parcel in parcels if parcel.tracking_number)
-            picking._neoship_store_parcels(packages, parcels, self.prod_environment)
+            picking._neoship_store_parcels(packages, parcels, self.prod_environment, currency)
             try:
                 picking._neoship_attach_label(client, tracking_number)
             except NeoshipError as e:
@@ -488,13 +536,37 @@ class DeliveryCarrier(models.Model):
             picking.neoship_parcel_ids._sync_created(client, self)
         return {'exact_price': self.fixed_price, 'tracking_number': tracking_number}
 
-    def _neoship_find_or_create(self, client, picking, packages):
+    def _neoship_set_cod_currency(self, client, picking, packages):
+        currency = picking._neoship_cod_currency()
+        cod_packages = [package for package in packages if package.get('cod_price')]
+        if not cod_packages:
+            return currency
+        # Neoship stores the amount under the currency it allows for the country without converting it.
+        try:
+            allowed = client.get_cod_currency_codes(self.neoship_shipper_id, cod_packages[0]['receiver_state_code'])
+        except NeoshipError as e:
+            raise self._neoship_user_error(e) from e
+        if currency.name in allowed:
+            return currency
+        if not allowed:
+            raise UserError(
+                self.env._(
+                    'Neoship carrier %(carrier)s does not collect cash on delivery in %(country)s. '
+                    'Send transfer %(transfer)s without cash on delivery or use another delivery method.',
+                    carrier=self.neoship_shipper_name,
+                    country=picking.partner_id.country_id.name,
+                    transfer=picking.name,
+                )
+            )
+        return picking._neoship_convert_cod(cod_packages, currency, allowed[0])
+
+    def _neoship_find_or_create(self, client, picking, packages, currency):
         references = [package['reference_number'] for package in packages]
         try:
             existing = client.find_packages(references)
             printed = self._neoship_printed_by_reference(picking, existing)
             changes = {
-                reference: self._neoship_shipment_changes(printed[reference], package)
+                reference: self._neoship_shipment_changes(printed[reference], package, currency)
                 for reference, package in zip(references, packages, strict=True)
                 if reference in printed
             }
@@ -506,6 +578,7 @@ class DeliveryCarrier(models.Model):
 
         shipments = self._neoship_create(client, packages)
         self._neoship_check_created(packages, shipments)
+        self._neoship_check_stored_cod(client, picking, packages, shipments, currency)
         if printed:
             self._neoship_post_replaced(picking, printed, changes, shipments)
         return shipments
@@ -571,6 +644,56 @@ class DeliveryCarrier(models.Model):
             )
         )
 
+    def _neoship_check_stored_cod(self, client, picking, packages, shipments, currency):
+        for package, shipment in zip(packages, shipments, strict=True):
+            if not package.get('cod_price'):
+                continue
+            try:
+                stored = client.get_package(shipment.id)
+            except NeoshipError as e:
+                raise UserError(
+                    self.env._(
+                        'Neoship created shipment %(tracking)s for transfer %(transfer)s, but its cash on delivery '
+                        'could not be checked: %(error)s. Validate again: the shipment is found by its reference '
+                        'and checked.',
+                        tracking=shipment.tracking_number,
+                        transfer=picking.name,
+                        error=self._neoship_error_message(e),
+                    )
+                ) from e
+            if stored.cod_currency_code != package['cod_currency_code'] or currency.compare_amounts(
+                stored.cod_price or 0.0, package['cod_price']
+            ):
+                self._neoship_cancel_wrong_cod(client, picking, shipments, package, stored)
+
+    def _neoship_cancel_wrong_cod(self, client, picking, shipments, package, stored):
+        values = {
+            'stored': f'{stored.cod_price} {stored.cod_currency_code}',
+            'sent': f'{package["cod_price"]} {package["cod_currency_code"]}',
+            'transfer': picking.name,
+            'tracking': ', '.join(shipment.tracking_number for shipment in shipments),
+        }
+        try:
+            for shipment in shipments:
+                client.cancel_package(shipment.id)
+        except NeoshipError as e:
+            raise UserError(
+                self.env._(
+                    'Neoship stored cash on delivery %(stored)s instead of %(sent)s for transfer %(transfer)s '
+                    'and shipment %(tracking)s could not be cancelled: %(error)s. Cancel it in Neoship.',
+                    error=self._neoship_error_message(e),
+                    **values,
+                )
+            ) from e
+        raise UserError(
+            self.env._(
+                'Neoship stored cash on delivery %(stored)s instead of %(sent)s for transfer %(transfer)s, '
+                'so shipment %(tracking)s was cancelled. Ask Neoship which currency carrier %(carrier)s collects in.',
+                carrier=self.neoship_shipper_name,
+                **values,
+            )
+        )
+
     def _neoship_post_replaced(self, picking, printed, changes, shipments):
         old_tracking = ', '.join(shipment.tracking_number for shipment in printed.values())
         new_tracking = ', '.join(shipment.tracking_number for shipment in shipments)
@@ -626,12 +749,12 @@ class DeliveryCarrier(models.Model):
         except NeoshipError as e:
             raise self._neoship_user_error(e) from e
 
-    def _neoship_shipment_changes(self, shipment, package):
+    def _neoship_shipment_changes(self, shipment, package, currency):
         old_shipper = shipment.shipper
         old = self._neoship_match_values(
-            asdict(shipment), old_shipper and old_shipper.id, len(shipment.sub_packages) + 1
+            asdict(shipment), old_shipper and old_shipper.id, len(shipment.sub_packages) + 1, currency
         )
-        new = self._neoship_match_values(package, self.neoship_shipper_id, package.get('count_of_packages'))
+        new = self._neoship_match_values(package, self.neoship_shipper_id, package.get('count_of_packages'), currency)
         changes = {
             key: (old[key], new[key])
             for key in old
@@ -641,13 +764,11 @@ class DeliveryCarrier(models.Model):
             changes['shipper'] = (old_shipper.name if old_shipper else '', self.neoship_shipper_name or '')
         return changes
 
-    def _neoship_match_values(self, data, shipper_id, count):
+    def _neoship_match_values(self, data, shipper_id, count, currency):
         values = {field: str(data.get(field) or '').strip() for field in const.SHIPMENT_MATCH_FIELDS}
         values.update({field: neoship_phone(data.get(field)) for field in const.SHIPMENT_MATCH_PHONE_FIELDS})
         values['shipper'] = shipper_id
-        values['cod_price'] = float_round(
-            float(data.get('cod_price') or 0.0), precision_digits=const.COD_PRECISION_DIGITS
-        )
+        values['cod_price'] = currency.round(float(data.get('cod_price') or 0.0))
         # Neoship keeps no weight for carriers that do not use it.
         if data.get('weight') is not None:
             values['weight'] = float_round(float(data['weight']), precision_digits=const.WEIGHT_PRECISION_DIGITS)

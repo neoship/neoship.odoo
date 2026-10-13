@@ -6,7 +6,7 @@ from http import HTTPStatus
 
 import requests
 
-from .neoship_responses import ClosureResult, PacketaCarrier, Shipment, Shipper
+from .neoship_responses import ClosureResult, CodLimit, PacketaCarrier, Shipment, Shipper, State
 
 PROD_URL = 'https://apiserver.neoship.sk/api'
 TEST_URL = 'https://t-we-nshp-api-01-app.azurewebsites.net/api'
@@ -30,7 +30,9 @@ def token_expiry(token):
 
 
 class NeoshipError(Exception):
-    pass
+    def __init__(self, message, field_errors=()):
+        super().__init__(message)
+        self.field_errors = tuple(field_errors)
 
 
 class NeoshipAuthError(NeoshipError):
@@ -99,6 +101,14 @@ class NeoshipClient:
 
     def get_packeta_carriers(self):
         return self._fetch('GET', '/carrier/available', PacketaCarrier, many=True)
+
+    def get_cod_currency_codes(self, shipper_id, state_code):
+        states = self._fetch('GET', '/states', State, many=True)
+        state = next((state for state in states if state.code == state_code), None)
+        if not state:
+            return ()
+        limits = self._fetch('GET', f'/codlimit/{shipper_id}/{state.id}', CodLimit, many=True)
+        return tuple(limit.currency_code for limit in limits)
 
     def create_packages(self, shipper_id, packages, print_type=None):
         payload = {'packages': packages}
@@ -178,43 +188,52 @@ class NeoshipClient:
             raise NeoshipConnectionError(f'Cannot connect to Neoship ({method} {path})') from e
 
         if response.status_code == HTTPStatus.UNAUTHORIZED:
-            raise NeoshipAuthError(self._error_message(response))
+            raise NeoshipAuthError(*self._error_info(response))
         if response.status_code == HTTPStatus.NOT_FOUND:
-            raise NeoshipNotFoundError(self._error_message(response))
+            raise NeoshipNotFoundError(*self._error_info(response))
         if not response.ok:
-            raise NeoshipError(self._error_message(response))
+            raise NeoshipError(*self._error_info(response))
         return response
 
     @classmethod
-    def _error_message(cls, response):
+    def _error_info(cls, response):
         try:
-            detail = cls._error_detail(response.json())
+            data = response.json()
         except ValueError:
-            detail = None
-        return f'HTTP {response.status_code}: {detail}' if detail else f'HTTP {response.status_code}'
+            data = None
+        field_errors = cls._field_errors(data)
+        detail = cls._error_detail(data, field_errors)
+        message = f'HTTP {response.status_code}: {detail}' if detail else f'HTTP {response.status_code}'
+        return message, field_errors
 
     @staticmethod
-    def _error_detail(data):
+    def _error_detail(data, field_errors):
+        if field_errors:
+            return '; '.join(f'{field}: {message}' if field else message for field, message in field_errors)
         if isinstance(data, dict):
             return data.get('message') or data.get('error')
-        if isinstance(data, list):
-            messages = [
-                message
-                for item in data
-                if isinstance(item, dict)
-                for message in NeoshipClient._error_messages(item.get('errors'))
-            ]
-            return '; '.join(messages)
         return None
 
-    @staticmethod
-    def _error_messages(errors):
+    @classmethod
+    def _field_errors(cls, data):
+        if isinstance(data, dict):
+            return cls._flatten_errors(data.get('errors'))
+        if isinstance(data, list):
+            return [
+                error for item in data if isinstance(item, dict) for error in cls._flatten_errors(item.get('errors'))
+            ]
+        return []
+
+    @classmethod
+    def _flatten_errors(cls, errors, field=''):
         if isinstance(errors, dict):
             return [
-                f'{field}: {message}'
-                for field, messages in errors.items()
-                for message in (messages if isinstance(messages, list) else [messages])
+                error
+                for key, nested in errors.items()
+                for error in cls._flatten_errors(nested, f'{field}.{key}' if field else str(key))
             ]
         if isinstance(errors, list):
-            return [str(message) for message in errors]
-        return [str(errors)] if errors else []
+            return [error for nested in errors for error in cls._flatten_errors(nested, field)]
+        if errors in (None, ''):
+            return []
+        return [(field, str(errors))]

@@ -107,7 +107,7 @@ class NeoshipClosureSchedule(models.Model):
         self.ensure_one()
         tz = pytz.timezone(self.tz)
         now = pytz.utc.localize(fields.Datetime.now()).astimezone(tz).replace(tzinfo=None)
-        hours, minutes = divmod(round(self.closure_time * 60), 60)
+        hours, minutes = divmod(min(round(self.closure_time * 60), 24 * 60 - 1), 60)
         run_at = datetime.combine(now.date(), time(hours, minutes))
         if run_at <= now:
             run_at += timedelta(days=1)

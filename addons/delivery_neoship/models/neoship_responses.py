@@ -42,6 +42,25 @@ class Shipper:
 
 
 @dataclass(frozen=True)
+class State:
+    id: int
+    code: str
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(int(data['id']), data['code'])
+
+
+@dataclass(frozen=True)
+class CodLimit:
+    currency_code: str
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(data['currency']['code'])
+
+
+@dataclass(frozen=True)
 class PacketaCarrier:
     packeta_id: int
     name: str

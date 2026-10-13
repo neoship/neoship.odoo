@@ -39,8 +39,33 @@ def label():
     return make_response(content=PDF, content_type='application/pdf')
 
 
+STATES = [{'id': 703, 'name': 'Slovensko', 'code': 'SK'}, {'id': 701, 'name': 'Česko', 'code': 'CZ'}]
+
+
+def cod_limits(*currency_codes):
+    return (
+        make_response(json_data=STATES),
+        make_response(json_data=[{'currency': {'code': code}} for code in currency_codes]),
+    )
+
+
+def stored(**values):
+    def response(calls):
+        package = [call for call in calls if '/bulk-create-and-print/' in call['url']][-1]['json']['packages'][0]
+        return make_response(
+            json_data={
+                'id': int(calls[-1]['url'].rsplit('/', 1)[1]),
+                'cod_price': package.get('cod_price'),
+                'cod_currency_code': package.get('cod_currency_code'),
+                **values,
+            }
+        )
+
+    return response
+
+
 def tracked(picking, status=None):
-    def response():
+    def response(_calls):
         status_data = STATUS_EXPORTED if status is None else status
         return make_response(
             json_data=[
@@ -66,7 +91,7 @@ def mock_neoship(*responses):
         calls.append({'method': method, 'url': url, 'headers': dict(session.headers), **kwargs})
         result = pending.pop(0)
         if callable(result):
-            result = result()
+            result = result(calls)
         if isinstance(result, Exception):
             raise result
         return result
@@ -144,6 +169,12 @@ class NeoshipShippingCommon(NeoshipCommon):
         with mock_neoship(login_ok(), *responses, tracked(picking)) as calls:
             picking.send_to_shipper()
         return calls
+
+    def _send_new(self, picking, created_response, currencies=None):
+        if not picking._neoship_cod_values():
+            return self._send(picking, NOT_FOUND, created_response, label())
+        currencies = currencies or (self.env.company.currency_id.name,)
+        return self._send(picking, *cod_limits(*currencies), NOT_FOUND, created_response, stored(), label())
 
     def _create_call(self, calls):
         return next(call for call in calls if '/bulk-create-and-print/' in call['url'])

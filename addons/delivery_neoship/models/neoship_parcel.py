@@ -60,7 +60,8 @@ class NeoshipParcel(models.Model):
         help='Neoship created this parcel from the package count of the main parcel and cancels it with the main one.',
     )
     prod_environment = fields.Boolean(string='Production', readonly=True)
-    cod_amount = fields.Float(string='Cash on Delivery', digits='Product Price', readonly=True)
+    cod_amount = fields.Monetary(string='Cash on Delivery', currency_field='cod_currency_id', readonly=True)
+    cod_currency_id = fields.Many2one('res.currency', string='Cash on Delivery Currency', readonly=True)
     label_id = fields.Many2one('ir.attachment', readonly=True)
     status = fields.Char(readonly=True)
     status_id = fields.Integer(string='Status ID', readonly=True)

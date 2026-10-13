@@ -1,7 +1,7 @@
 from odoo.tests import tagged
 
 from odoo.addons.delivery_neoship import const
-from odoo.addons.delivery_neoship.tests.common import NOT_FOUND, NeoshipShippingCommon, created, label
+from odoo.addons.delivery_neoship.tests.common import NeoshipShippingCommon, created
 
 
 @tagged('post_install', '-at_install')
@@ -43,7 +43,7 @@ class TestCashOnDeliveryKit(NeoshipShippingCommon):
         cls.order.action_confirm()
 
     def _cod(self, picking, package_id=501):
-        calls = self._send(picking, NOT_FOUND, created(package_id, f'TRK{package_id}'), label())
+        calls = self._send_new(picking, created(package_id, f'TRK{package_id}'))
         return self._sent_package(calls).get('cod_price')
 
     def test_kit_is_collected_per_complete_set(self):

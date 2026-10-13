@@ -1,0 +1,31 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* delivery_neoship_mrp
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0-20260926\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 07:10+0000\n"
+"PO-Revision-Date: 2026-10-13 07:10+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: delivery_neoship_mrp
+#: model:ir.model.fields,field_description:delivery_neoship_mrp.field_stock_move__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: delivery_neoship_mrp
+#: model:ir.model.fields,field_description:delivery_neoship_mrp.field_stock_move__id
+msgid "ID"
+msgstr ""
+
+#. module: delivery_neoship_mrp
+#: model:ir.model,name:delivery_neoship_mrp.model_stock_move
+msgid "Stock Move"
+msgstr ""

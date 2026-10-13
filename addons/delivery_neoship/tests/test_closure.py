@@ -94,6 +94,11 @@ class TestClosure(NeoshipCommon):
             schedule.active = True
             self.assertEqual(schedule.next_run, datetime(2026, 10, 7, 14, 30))
 
+    def test_closure_time_rounding_to_midnight_runs_at_last_minute(self):
+        with freeze_time(NOW):
+            schedule = self._schedule(closure_time=23.999)
+            self.assertEqual(schedule.next_run, datetime(2026, 10, 7, 21, 59))
+
     def test_cron_runs_only_due_schedules(self):
         with freeze_time(NOW):
             due = self._schedule(closure_time=15.5)

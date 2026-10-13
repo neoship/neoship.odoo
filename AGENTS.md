@@ -6,7 +6,7 @@
 - Python models: wrap user-facing strings in `self.env._()` (Odoo 18+ style, enforced by pylint-odoo) and pass values as arguments — `self.env._('Shipment %s failed', ref)`. Never build translated text with f-strings, `%` or `+`.
 - Views, field `string`/`help` and selection labels are extracted automatically; keep them as plain English. Omit `string=` when it equals the label Odoo derives from the field name.
 - `models/neoship_api.py` has no Odoo environment. Its exceptions carry technical details only; turn them into translated `UserError` messages in the models.
-- Do not create or update `i18n/*.pot` / `*.po` files yet. The Slovak translation is planned for a later phase.
+- Each addon ships `i18n/<module>.pot` (exported from Odoo) and a Slovak `i18n/sk.po`. When you add or change user-facing text, re-export the `.pot` and update `sk.po` in the same change, with no stale or untranslated entries.
 
 ## No magic values
 

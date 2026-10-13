@@ -1,0 +1,1297 @@
+# Translation of Odoo Server.
+# This file contains the translation of the following modules:
+# 	* delivery_neoship
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Odoo Server 19.0-20260926\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-10-13 07:10+0000\n"
+"PO-Revision-Date: 2026-10-13 07:10+0000\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: \n"
+"Plural-Forms: \n"
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Account"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__active
+msgid "Active"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_label_format_fallback
+msgid "Address Label Format Code"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"An archived Neoship closure schedule was created for %(carriers)s. Check its"
+" time and days, then activate it: %(link)s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"An archived Neoship closure schedule was created for %s. An administrator "
+"checks its time and days and activates it in Inventory > Configuration > "
+"Neoship Closure Schedules."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Another transfer of order %s is being processed. Try again in a moment."
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid "Archived"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.neoship_option_wizard_view_form
+msgid "Cancel"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__cancel_refused
+msgid "Cancel Refused"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/sale_order.py:0
+msgid ""
+"Cancel the Neoship shipments first (Additional Info → Cancel on the "
+"transfer): %s"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__cancel
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__cancel
+msgid "Cancelled"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Cannot connect to Neoship. Check the network connection and try again."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__carrier_id
+msgid "Carrier"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__cod_amount
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Cash on Delivery"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_cod_manual_amount
+msgid "Cash on Delivery Amount"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_cod_domain
+msgid "Cash on Delivery Orders"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Choose"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Choose Label Format"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Choose Neoship Carrier"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_neoship_option_wizard
+msgid "Choose Neoship Option"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Choose Packeta Home Delivery Carrier"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Choose the Neoship carrier on delivery method %s."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Choose the Packeta home delivery carrier on delivery method %s."
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid "Close Now"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid "Close all shipments of this Neoship account at this carrier now?"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.actions.act_window,help:delivery_neoship.action_neoship_closure_schedule
+msgid ""
+"Close the day at SPS, Packeta or Slovenská pošta automatically and keep the "
+"protocol in Odoo."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_closure__state__done
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_search
+msgid "Closed"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__closed_at
+msgid "Closed At"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__closure_count
+msgid "Closure Count"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__closure_date
+msgid "Closure Date"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Closure Schedules"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__closure_ids
+msgid "Closures"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.actions.act_window,help:delivery_neoship.action_neoship_closure
+msgid ""
+"Closures are created by the closure schedules in Inventory configuration."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__code
+msgid "Code"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__company_id
+msgid "Company"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Connection successful."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__country_id
+msgid "Country"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_carrier_type_country_id
+msgid ""
+"Country of the Packeta home delivery carrier. Recipients in other countries "
+"are refused before sending."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__create_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__create_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__create_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__create_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__create_uid
+msgid "Created by"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__create_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__create_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__create_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__create_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__create_date
+msgid "Created on"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__currency
+msgid "Currency"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid "Days"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__delivered
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__delivered
+msgid "Delivered"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__status_group
+msgid "Delivery"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__carrier_id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__carrier_id
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_search
+msgid "Delivery Method"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/neoship_closure_schedule.py:0
+msgid "Delivery method %s has no Neoship carrier with a closure."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/neoship_closure_schedule.py:0
+msgid ""
+"Delivery method %s has no Neoship carrier with a closure. Closures are "
+"available for SPS, Packeta and Slovenská pošta."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__display_name
+msgid "Display Name"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_form_neoship
+msgid "Download Label Again"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__error
+msgid "Error"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Existing Neoship shipment %s was found by its reference and linked to this "
+"transfer."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__exported
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__exported
+msgid "Exported"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_closure__state__failed
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_search
+msgid "Failed"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_label_format_name
+msgid ""
+"Format of the shipping labels, from the formats Neoship offers for the "
+"carrier. It is fixed when the shipment is created."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__fri
+msgid "Fri"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__has_pickup_point_only
+msgid "Has Pickup Point Only"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__id
+msgid "ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__transit
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__transit
+msgid "In Transit"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__is_copy
+msgid "Is Copy"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__kind
+msgid "Kind"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__label_id
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.neoship_parcel_view_list
+msgid "Label"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_label_format_name
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_option_wizard__kind__label_format
+msgid "Label Format"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_label_format
+msgid "Label Format Code"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__last_sync
+msgid "Last Sync"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__write_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__write_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__write_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__write_uid
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__write_uid
+msgid "Last Updated by"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__write_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__write_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__write_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__write_date
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__write_date
+msgid "Last Updated on"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__line_ids
+msgid "Line"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_cod_manual
+msgid "Manual Cash on Delivery"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__message
+msgid "Message"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__mon
+msgid "Mon"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__name
+msgid "Name"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__delivery_carrier__delivery_type__neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.stock_package_view_form_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_order_form_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_form_neoship
+msgid "Neoship"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__action
+msgid "Neoship Action"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_shipper_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__shipper_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__shipper_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__shipper_name
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_option_wizard__kind__shipper
+msgid "Neoship Carrier"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_shipper_code
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__shipper_code
+msgid "Neoship Carrier Code"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_shipper_id
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__shipper_id
+msgid "Neoship Carrier ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_neoship_closure
+msgid "Neoship Closure"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_neoship_closure_schedule
+msgid "Neoship Closure Schedule"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_closure_schedule_count
+msgid "Neoship Closure Schedule Count"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.actions.act_window,name:delivery_neoship.action_neoship_closure_schedule
+#: model:ir.ui.menu,name:delivery_neoship.menu_neoship_closure_schedule
+msgid "Neoship Closure Schedules"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Neoship Configuration"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_default_weight
+msgid "Neoship Default Weight"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_status_group
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship Delivery"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_has_carrier_type
+msgid "Neoship Has Carrier Type"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_has_closure
+msgid "Neoship Has Closure"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__neoship_id
+msgid "Neoship ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_neoship_option_wizard_line
+msgid "Neoship Option"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_neoship_parcel
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__neoship_parcel_ids
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_parcel_ids
+msgid "Neoship Parcel"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__neoship_parcel_count
+msgid "Neoship Parcel Count"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/sale_order.py:0
+msgid "Neoship Parcels"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_password
+msgid "Neoship Password"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__neoship_parcelshop_id
+msgid "Neoship Pickup Point ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.actions.act_window,name:delivery_neoship.action_neoship_closure
+#: model:ir.ui.menu,name:delivery_neoship.menu_neoship_closure
+#: model:ir.ui.menu,name:delivery_neoship.menu_neoship_closure_config
+msgid "Neoship Protocols"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_status
+msgid "Neoship Status"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_username
+msgid "Neoship Username"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship can no longer cancel shipment %s. It was probably already handed "
+"over to the carrier."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship carrier %(carrier)s is not in the price list of your Neoship "
+"account. Choose another carrier on delivery method %(method)s or ask Neoship"
+" to add it."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/neoship_closure.py:0
+msgid "Neoship closed nothing and returned no protocol."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship created shipment %s but the carrier returned no tracking number. Fix"
+" the problem reported by the carrier and validate again."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_neoship_parcel__is_copy
+msgid ""
+"Neoship created this parcel from the package count of the main parcel and "
+"cancels it with the main one."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship did not confirm shipment %s in time; it may still be created. Wait a"
+" minute and validate again: an existing shipment is found by its reference, "
+"so no duplicate is created."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship did not respond in time. Try again later."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship offers no label formats for carrier %s."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Neoship reference %(reference)s of transfer %(transfer)s is already used by "
+"transfer %(other)s (%(company)s)."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_neoship_parcel__cancel_refused
+msgid ""
+"Neoship refused to cancel the parcel because the carrier already has it."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship rejected the login: %s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/neoship_closure.py:0
+msgid "Neoship returned a protocol that is not a valid file."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship returned a response that cannot be processed: %s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship returned an error: %s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship shipment %(old)s had different data (%(changes)s), so it was "
+"cancelled and replaced by shipment %(new)s."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship shipment %(old)s was cancelled and created again together with the "
+"missing parcels as %(new)s."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship shipment %(tracking)s for transfer %(transfer)s has different data "
+"(%(changes)s) and can no longer be cancelled because the carrier already has"
+" it. Check it in Neoship."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship shipment %(tracking)s for transfer %(transfer)s has to be created "
+"again together with its other parcels, but it can no longer be cancelled "
+"because the carrier already has it. Check it in Neoship."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Neoship shipment %(tracking)s: %(status)s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/neoship_parcel.py:0
+msgid "Neoship shipment %s was not found."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Neoship shipping label"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: Cancelled"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.actions.server,name:delivery_neoship.ir_cron_neoship_closures_ir_actions_server
+msgid "Neoship: Closures"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: Delivered"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: Exported"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: In Transit"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: New"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: Not Delivered"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
+msgid "Neoship: Returned"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.actions.server,name:delivery_neoship.ir_cron_neoship_update_tracking_ir_actions_server
+msgid "Neoship: Update Tracking"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__new
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__new
+msgid "New"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__next_run
+msgid "Next Run"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.actions.act_window,help:delivery_neoship.action_neoship_closure
+msgid "No Neoship protocols yet"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "No carriers are connected to this Neoship account."
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid ""
+"No order is cash on delivery. Click Edit Domain and choose the orders that "
+"are."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__notdelivered
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__notdelivered
+msgid "Not Delivered"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Not selected"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_closure__state__empty
+msgid "Nothing to Close"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Open closure schedule"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_package
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__package_id
+msgid "Package"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_carrier_type_name
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_option_wizard__kind__carrier_type
+msgid "Packeta Home Delivery Carrier"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_carrier_type
+msgid "Packeta Home Delivery Carrier ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_carrier_type_country_id
+msgid "Packeta Home Delivery Country"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Packeta carrier %(carrier)s of delivery method %(method)s delivers only to "
+"%(country)s, but the recipient of transfer %(transfer)s is in "
+"%(recipient_country)s. Use the delivery method for that country."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_carrier_type_name
+msgid ""
+"Packeta carrier used for delivery to an address. Pickup point orders go to "
+"the pickup point."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_neoship_closure__date_from
+msgid ""
+"Packeta closes the shipments created since this date that it has not picked "
+"up yet."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Packeta needs a weight between 0 and %(max)s kg for each parcel, parcel "
+"%(parcel)s of transfer %(transfer)s has %(weight)s kg."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Packeta needs a weight between 0 and %(max)s kg, transfer %(transfer)s has "
+"%(weight)s kg."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__picking_id
+msgid "Picking"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__supports_parcelshops
+msgid "Pickup Points"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__pickup_point_only
+msgid "Pickup Points Only"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_sale_order__neoship_parcelshop_id
+msgid ""
+"Pickup point ID sent by the e-shop. Neoship shipments of this order go to "
+"this pickup point."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__print_formats
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__print_formats
+msgid "Print Formats"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__prod_environment
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__prod_environment
+msgid "Production"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__protocol
+msgid "Protocol"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__protocol_filename
+msgid "Protocol Filename"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid "Protocols"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__delivery_type
+msgid "Provider"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Put all products of transfer %s in packs, or none of them: Neoship sends one"
+" parcel per pack."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Recipient %(partner)s is missing: %(fields)s"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__reference
+msgid "Reference"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__state
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_search
+msgid "Result"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__returned
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__returned
+msgid "Returned"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_sale_order
+msgid "Sales Order"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_cod_domain
+msgid ""
+"Sales orders matching this filter are shipped as cash on delivery. When "
+"empty or without conditions, no order is cash on delivery."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__sat
+msgid "Sat"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__schedule_id
+msgid "Schedule"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.actions.act_window,help:delivery_neoship.action_neoship_closure_schedule
+msgid "Schedule a Neoship closure"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.neoship_option_wizard_view_form
+msgid "Select"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_stock_picking__neoship_cod_manual
+msgid ""
+"Send the amount below instead of the amount computed from the products of "
+"this transfer. Zero means no cash on delivery."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Sender %(partner)s is missing: %(fields)s"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__sequence
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__sequence
+msgid "Sequence"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Set the Neoship username and password on delivery method %s."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Several Neoship shipments use reference %(reference)s (IDs %(ids)s). Check "
+"them in Neoship before sending transfer %(transfer)s again."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Shipment %s cancelled"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__date_from
+msgid "Shipments From"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Shipping"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_delivery_carrier
+msgid "Shipping Methods"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__status
+msgid "Status"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__status_date
+msgid "Status Changed"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__status_id
+msgid "Status ID"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_move
+msgid "Stock Move"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__sun
+msgid "Sun"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Test Connection"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.constraint,message:delivery_neoship.constraint_delivery_carrier_neoship_default_weight_positive
+msgid "The Neoship default weight cannot be negative."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "The Neoship label could not be downloaded: %s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"The carrier refused Neoship shipment %(reference)s: %(errors)s. Fix the "
+"problem and validate again."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.constraint,message:delivery_neoship.constraint_stock_picking_neoship_cod_manual_amount_positive
+msgid "The cash on delivery amount cannot be negative."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"The cash on delivery amount of transfer %(transfer)s would be %(amount)s, "
+"for example because of a discount on order %(order)s. Set the cash on "
+"delivery amount manually."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"The cash on delivery filter on delivery method %(method)s is invalid: "
+"%(error)s"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_neoship_closure_schedule_form
+msgid ""
+"The closure covers all shipments of the Neoship account at this carrier, "
+"including shipments not sent from Odoo."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.constraint,message:delivery_neoship.constraint_neoship_closure_schedule_closure_time_range
+msgid "The closure time must be between 00:00 and 23:59."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_neoship_closure_schedule__carrier_id
+msgid ""
+"The delivery method sets the Neoship account and carrier. Only carriers with"
+" a closure are offered."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.constraint,message:delivery_neoship.constraint_neoship_parcel_reference_uniq
+msgid "This Neoship reference is already used by another parcel."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__thu
+msgid "Thu"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__closure_time
+msgid "Time"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__tz
+msgid "Timezone"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.neoship_parcel_view_list
+msgid "Tracking"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__sync_error
+msgid "Tracking Error"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__tracking_ref
+msgid "Tracking Number"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_picking
+msgid "Transfer"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_move.py:0
+msgid ""
+"Transfer %(transfer)s delivers %(product)s as separate components, so its "
+"cash on delivery amount cannot be computed. Set the cash on delivery amount "
+"manually."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Transfer %s cannot be sent to Neoship."
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "Transfer %s is already being sent to Neoship. Try again in a moment."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__tue
+msgid "Tue"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_form_neoship
+msgid "Update Tracking"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_label_format_fallback
+msgid ""
+"Used for shipments to an address when the label format prints only pickup "
+"point shipments."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_default_weight
+msgid "Used when the delivery order has no weight."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__value
+msgid "Value"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__wed
+msgid "Wed"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__wizard_id
+msgid "Wizard"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "ZIP"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "city"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "country"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "email"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "name"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "phone"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "street"
+msgstr ""

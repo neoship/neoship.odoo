@@ -237,18 +237,35 @@ class TestNeoshipClient(BaseCase):
         ):
             self.client.cancel_package(42)
 
+    def _api_error(self, json_data, status=422):
+        self.client.session.headers['Authorization'] = 'Bearer token-1'
+        with mock_neoship(make_response(status, json_data)), self.assertRaises(NeoshipError) as raised:
+            self.client.cancel_package(42)
+        return raised.exception
+
     def test_field_errors_are_listed(self):
-        detail = NeoshipClient._error_detail(
+        error = self._api_error(
             [{'reference_number': 'X', 'errors': {'receiver_zip': ['Invalid ZIP.'], 'receiver_city': 'Required.'}}]
         )
-        self.assertEqual(detail, 'receiver_zip: Invalid ZIP.; receiver_city: Required.')
+        self.assertEqual(error.field_errors, (('receiver_zip', 'Invalid ZIP.'), ('receiver_city', 'Required.')))
+        self.assertEqual(str(error), 'HTTP 422: receiver_zip: Invalid ZIP.; receiver_city: Required.')
 
     def test_package_level_errors_are_listed(self):
-        detail = NeoshipClient._error_detail([{'reference_number': 'X', 'errors': ['Invalid package', 'No credit']}])
-        self.assertEqual(detail, 'Invalid package; No credit')
+        error = self._api_error([{'reference_number': 'X', 'errors': ['Invalid package', 'No credit']}])
+        self.assertEqual(str(error), 'HTTP 422: Invalid package; No credit')
 
     def test_single_error_message_is_kept_whole(self):
-        self.assertEqual(NeoshipClient._error_detail([{'errors': 'Invalid package'}]), 'Invalid package')
+        self.assertEqual(str(self._api_error([{'errors': 'Invalid package'}])), 'HTTP 422: Invalid package')
+
+    def test_nested_errors_are_flattened_without_empty_ones(self):
+        error = self._api_error(
+            [{'errors': {'receiver_zip': ['Invalid ZIP.'], 'services': {'cod': [], 'sms': {'phone': ['Required.']}}}}]
+        )
+        self.assertEqual(error.field_errors, (('receiver_zip', 'Invalid ZIP.'), ('services.sms.phone', 'Required.')))
+
+    def test_errors_next_to_a_message_are_preferred(self):
+        error = self._api_error({'message': 'Validation failed', 'errors': {'weight': ['Too heavy.']}})
+        self.assertEqual(str(error), 'HTTP 422: weight: Too heavy.')
 
     def test_timeout_is_distinguishable(self):
         self.client.session.headers['Authorization'] = 'Bearer token-1'

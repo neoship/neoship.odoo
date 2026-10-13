@@ -131,6 +131,11 @@ class TestOptionWizard(NeoshipCommon):
         wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)
         self.assertFalse(wizard.has_pickup_point_only)
 
+    def test_label_format_needs_a_chosen_carrier(self):
+        with mock_neoship() as calls, self.assertRaisesRegex(UserError, 'Choose the Neoship carrier'):
+            self.carrier.action_neoship_choose_label_format()
+        self.assertFalse(calls)
+
     def test_select_label_format_stores_it_on_delivery_method(self):
         self._choose_packeta('SK Packeta Home HD')
         wizard, _calls = self._open('action_neoship_choose_label_format', SHIPPERS)

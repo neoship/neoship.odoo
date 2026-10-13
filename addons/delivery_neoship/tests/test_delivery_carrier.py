@@ -115,7 +115,14 @@ class TestDeliveryCarrier(NeoshipCommon):
         self.assertTrue(self.carrier._neoship_is_cod(order))
 
     def test_invalid_cod_domain_is_rejected_on_save(self):
-        for domain in ("[('partner_id.nmae', '=', 'X')]", "[('partner_id', '=', unknown)]", '42'):
+        for domain in (
+            "[('partner_id.nmae', '=', 'X')]",
+            "[('partner_id', '=', unknown)]",
+            '42',
+            "[('partner_id', '=',",
+            '__import__',
+            "[('amount_total', '>', 1 / 0)]",
+        ):
             with self.subTest(domain=domain), self.assertRaisesRegex(ValidationError, 'cash on delivery filter'):
                 self.carrier.neoship_cod_domain = domain
 

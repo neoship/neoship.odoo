@@ -2,16 +2,28 @@ from datetime import datetime
 
 from odoo import api, fields, models
 from odoo.exceptions import LockError, UserError
-from odoo.tools import float_round, format_amount, ormcache
+from odoo.tools import float_round, format_amount, format_date, ormcache
 
 from .. import const
-from ..tools import neoship_code, neoship_combined_status_group, neoship_parcel_reference, neoship_phone
+from ..tools import (
+    neoship_code,
+    neoship_combined_status_group,
+    neoship_digits,
+    neoship_parcel_reference,
+    neoship_phone,
+    neoship_reference,
+)
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
     neoship_parcel_ids = fields.One2many('neoship.parcel', 'picking_id', readonly=True)
+    neoship_reference = fields.Char(
+        readonly=True,
+        copy=False,
+        help='Reference of the shipment in Neoship, kept from the first time the transfer was sent.',
+    )
     neoship_status = fields.Char(compute='_compute_neoship_status', store=True)
     neoship_status_group = fields.Selection(
         const.STATUS_GROUP_SELECTION,
@@ -75,9 +87,27 @@ class StockPicking(models.Model):
 
     def _neoship_reference(self):
         self.ensure_one()
-        if self._neoship_multi_company():
-            return neoship_code(f'{const.REFERENCE_COMPANY_PREFIX}{self.company_id.id}-{self.name}')
-        return neoship_code(self.name)
+        if self.neoship_reference:
+            return self.neoship_reference
+        prefix = f'{const.REFERENCE_COMPANY_PREFIX}{self.company_id.id}-' if self._neoship_multi_company() else ''
+        deliveries = self.sale_id.picking_ids.filtered(
+            lambda picking: picking.picking_type_code == const.ODOO_PICKING_TYPE_OUTGOING
+        ).sorted('id')
+        if self not in deliveries:
+            return neoship_reference(prefix, self.name, 1)
+        delivery = deliveries.ids.index(self.id) + 1
+        if delivery > const.REFERENCE_MAX_DELIVERIES:
+            raise UserError(
+                self.env._(
+                    'Transfer %(transfer)s is delivery %(delivery)s of order %(order)s, but Neoship references '
+                    'number at most %(limit)s deliveries of an order.',
+                    transfer=self.name,
+                    delivery=delivery,
+                    order=self.sale_id.name,
+                    limit=const.REFERENCE_MAX_DELIVERIES,
+                )
+            )
+        return neoship_reference(prefix, self.sale_id.name, delivery)
 
     def _neoship_check_references_free(self, packages):
         self.ensure_one()
@@ -204,15 +234,8 @@ class StockPicking(models.Model):
         }
 
     def _neoship_check_addresses(self, package, sender, receiver):
-        labels = {
-            'name': self.env._('name'),
-            'street': self.env._('street'),
-            'city': self.env._('city'),
-            'zip': self.env._('ZIP'),
-            'state_code': self.env._('country'),
-            'email': self.env._('email'),
-            'phone': self.env._('phone'),
-        }
+        labels = self.carrier_id._neoship_address_labels()
+        del labels['company']
 
         def missing(prefix):
             return ', '.join(label for key, label in labels.items() if not package[f'{prefix}_{key}'])
@@ -291,11 +314,70 @@ class StockPicking(models.Model):
         return {
             'cod_price': currency.round(amount),
             'cod_currency_code': currency.name,
-            'cod_reference': neoship_code(order.name or self.name),
+            'cod_reference': self._neoship_cod_reference(),
         }
+
+    def _neoship_cod_reference(self):
+        source = self.sale_id or self
+        if not self.carrier_id._neoship_numeric_cod_reference():
+            return neoship_code(source.name)
+        digits = neoship_digits(source.name) or str(source.id)
+        return digits[-const.NUMERIC_COD_REFERENCE_MAX_LENGTH :]
 
     def _neoship_cod_currency(self):
         return self.sale_id.currency_id or self.company_id.currency_id
+
+    def _neoship_convert_cod(self, packages, currency, target_code):
+        self.ensure_one()
+        target = self.env['res.currency'].with_context(active_test=False).search([('name', '=', target_code)], limit=1)
+        company = self.company_id
+        country = self.partner_id.country_id.name
+        # Odoo converts at rate 1 when a currency has no rate, which is the mistake this conversion prevents.
+        if not target or not all(self._neoship_has_rate(item, company) for item in currency | target):
+            raise UserError(
+                self.env._(
+                    'Neoship collects cash on delivery in %(country)s only in %(target)s. '
+                    'Activate %(target)s and %(currency)s with exchange rates, so the cash on delivery of '
+                    'transfer %(transfer)s can be converted.',
+                    country=country,
+                    target=target_code,
+                    currency=currency.name,
+                    transfer=self.name,
+                )
+            )
+        date = fields.Date.context_today(self)
+        amounts = []
+        for package in packages:
+            amount = package['cod_price']
+            package['cod_price'] = currency._convert(amount, target, company, date)
+            package['cod_currency_code'] = target.name
+            amounts.append((amount, package['cod_price']))
+        self.message_post(
+            body=self.env._(
+                'Neoship collects cash on delivery in %(country)s only in %(target)s, so %(amounts)s was converted '
+                'at the rate of %(date)s.',
+                country=country,
+                target=target.name,
+                amounts=', '.join(
+                    self.env._(
+                        '%(amount)s to %(converted)s',
+                        amount=format_amount(self.env, amount, currency),
+                        converted=format_amount(self.env, converted, target),
+                    )
+                    for amount, converted in amounts
+                ),
+                date=format_date(self.env, date),
+            )
+        )
+        return target
+
+    def _neoship_has_rate(self, currency, company):
+        root = company.root_id
+        return currency == root.currency_id or bool(
+            self.env['res.currency.rate']
+            .sudo()
+            .search_count([('currency_id', '=', currency.id), ('company_id', 'in', (False, root.id))], limit=1)
+        )
 
     def _neoship_cod_amount(self):
         # The first delivery also collects the services, the one completing the order the rest of its total;
@@ -357,7 +439,7 @@ class StockPicking(models.Model):
         self.ensure_one()
         return self.neoship_parcel_ids[:1]
 
-    def _neoship_store_parcels(self, packages, parcels, prod_environment):
+    def _neoship_store_parcels(self, packages, parcels, prod_environment, currency):
         self.ensure_one()
         packs = self._neoship_packs()
         if len(packs) != len(parcels):
@@ -378,10 +460,12 @@ class StockPicking(models.Model):
                     'tracking_ref': parcel.tracking_number,
                     'is_copy': is_copy,
                     'cod_amount': package.get('cod_price', 0.0),
+                    'cod_currency_id': currency.id,
                     'prod_environment': prod_environment,
                 }
             )
         self.env['neoship.parcel'].create(values)
+        self.neoship_reference = packages[0]['reference_number']
 
     def _neoship_post_status_change(self, groups_before):
         for picking in self:

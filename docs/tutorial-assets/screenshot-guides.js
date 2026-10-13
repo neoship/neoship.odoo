@@ -118,7 +118,12 @@
       mark([29, 698, 156, 41], [240, 718], "Click Test Connection and check the green result.", "Kliknite na Test Connection a skontrolujte zelený výsledok."),
       mark([1271, 620, 100, 31], [1412, 671], "Choose beside Neoship Carrier opens the carrier picker.", "Choose pri Neoship Carrier otvorí výber dopravcu."),
       mark([878, 655, 56, 34], [989, 672], "Neoship Default Weight is the fallback in kilograms when the delivery has no weight.", "Neoship Default Weight je náhradná hmotnosť v kilogramoch, keď dodací list nemá hmotnosť."),
-      mark([195, 809, 210, 89], [460, 854], "Edit Domain sets the Neoship COD rule: here, orders tagged Dobierka. The standard Cash on Delivery checkbox above is different.", "Edit Domain nastavuje pravidlo dobierky Neoship: tu objednávky so štítkom Dobierka. Štandardné políčko Cash on Delivery vyššie je iné nastavenie."),
+      mark([195, 815, 217, 89], [460, 854], "Edit Domain sets the Neoship COD rule: here, orders tagged Dobierka. The standard Cash on Delivery checkbox above is different.", "Edit Domain nastavuje pravidlo dobierky Neoship: tu objednávky so štítkom Dobierka. Štandardné políčko Cash on Delivery vyššie je iné nastavenie."),
+      mark([1271, 710, 100, 31], [1412, 760], "Choose beside Label Format opens the label formats Neoship offers for the carrier.", "Choose pri Label Format otvorí formáty štítkov, ktoré Neoship pre dopravcu ponúka."),
+    ],
+    "50-label-format.webp": [
+      mark([964, 473, 60, 31], [1100, 488], "Click Select on the format your printer uses.", "Kliknite na Select pri formáte, na ktorý tlačí vaša tlačiareň."),
+      mark([255, 432, 172, 108], [470, 590], "The formats come from Neoship and differ per carrier.", "Formáty poskytuje Neoship a pre každého dopravcu sú iné."),
     ],
     "35-settings-menu.webp": [
       mark([43, -4, 91, 54], [115, 102], "Start in the Inventory app.", "Začnite v aplikácii Inventár (Inventory)."),

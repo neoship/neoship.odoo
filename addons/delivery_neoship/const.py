@@ -10,10 +10,23 @@ SHIPPER_CODES_WITH_CARRIER_TYPE = (SHIPPER_CODE_PACKETA,)
 # Neoship ignores count_of_packages for these carriers, so each pack is sent as its own shipment.
 SHIPPER_CODES_SHIPMENT_PER_PACK = (SHIPPER_CODE_PACKETA,)
 SHIPPER_DELIVERY_TYPE_PARCELSHOP = 'parcelshop'
+# Neoship accepts only a variable symbol (up to 10 digits) as the cash on delivery reference for these carriers.
+SHIPPER_CODES_NUMERIC_COD_REFERENCE = (SHIPPER_CODE_DPD,)
+NUMERIC_COD_REFERENCE_MAX_LENGTH = 10
 
 REFERENCE_MAX_LENGTH = 25
 REFERENCE_COMPANY_PREFIX = 'C'
 REFERENCE_INVALID_CHARS = r'[^A-Za-z0-9_-]+'
+# Every reference ends with -NN, while Neoship names package copies by appending a digit, so a copy never
+# matches another reference.
+REFERENCE_DELIVERY_SEPARATOR = '-'
+REFERENCE_DELIVERY_DIGITS = 2
+REFERENCE_MAX_DELIVERIES = 10**REFERENCE_DELIVERY_DIGITS - 1
+# Packeta packs sent as their own shipments get _N; every reference keeps room for _99.
+REFERENCE_PACK_SEPARATOR = '_'
+REFERENCE_PACK_ROOM = 3
+REFERENCE_FINGERPRINT_LENGTH = 4
+REFERENCE_FINGERPRINT_ALPHABET = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
 PACKETA_MAX_WEIGHT_KG = 15.0
 
 SHIPMENT_MATCH_FIELDS = (
@@ -28,7 +41,6 @@ SHIPMENT_MATCH_FIELDS = (
     'cod_currency_code',
 )
 SHIPMENT_MATCH_PHONE_FIELDS = ('receiver_phone',)
-COD_PRECISION_DIGITS = 2
 WEIGHT_PRECISION_DIGITS = 3
 COD_FIELDS = ('cod_price', 'cod_currency_code', 'cod_reference')
 

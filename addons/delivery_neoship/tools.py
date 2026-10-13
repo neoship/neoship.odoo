@@ -1,3 +1,4 @@
+import hashlib
 import re
 
 from . import const
@@ -7,8 +8,37 @@ def neoship_shipper_key(shipper_code):
     return (shipper_code or '').lower()
 
 
+def neoship_clean(value):
+    return re.sub(const.REFERENCE_INVALID_CHARS, '-', value or '').strip('-')
+
+
 def neoship_code(value):
-    return re.sub(const.REFERENCE_INVALID_CHARS, '-', value or '').strip('-')[: const.REFERENCE_MAX_LENGTH]
+    return neoship_clean(value)[: const.REFERENCE_MAX_LENGTH]
+
+
+def neoship_reference(prefix, name, delivery):
+    suffix = f'{const.REFERENCE_DELIVERY_SEPARATOR}{delivery:0{const.REFERENCE_DELIVERY_DIGITS}d}'
+    base = neoship_clean(f'{prefix}{name}')
+    room = const.REFERENCE_MAX_LENGTH - const.REFERENCE_PACK_ROOM - len(suffix)
+    if len(base) > room:
+        # The fingerprint covers the cut-off start, so long names that end the same stay unique.
+        head = f'{prefix}{neoship_fingerprint(base)}-'
+        base = head + base[len(head) - room :].lstrip('-_')
+    return base + suffix
+
+
+def neoship_fingerprint(value):
+    number = int(hashlib.sha256(value.encode()).hexdigest(), 16)
+    alphabet = const.REFERENCE_FINGERPRINT_ALPHABET
+    characters = []
+    for _index in range(const.REFERENCE_FINGERPRINT_LENGTH):
+        number, position = divmod(number, len(alphabet))
+        characters.append(alphabet[position])
+    return ''.join(characters)
+
+
+def neoship_digits(value):
+    return re.sub(r'\D', '', value or '')
 
 
 def neoship_phone(value):
@@ -43,5 +73,4 @@ def neoship_combined_status_group(groups):
 def neoship_parcel_reference(reference, sequence):
     if sequence == 1:
         return reference
-    suffix = f'-{sequence}'
-    return reference[: const.REFERENCE_MAX_LENGTH - len(suffix)] + suffix
+    return f'{reference}{const.REFERENCE_PACK_SEPARATOR}{sequence}'

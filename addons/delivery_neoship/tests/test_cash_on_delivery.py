@@ -1,7 +1,13 @@
+from unittest.mock import patch
+
+from odoo import fields
 from odoo.exceptions import UserError
 from odoo.tests import tagged
 
-from .common import NOT_FOUND, NeoshipShippingCommon, created, label
+from odoo.addons.delivery_neoship import const
+from odoo.addons.delivery_neoship.models.neoship_api import TEST_URL
+
+from .common import NOT_FOUND, NeoshipShippingCommon, cod_limits, created, login_ok, make_response, mock_neoship, stored
 
 
 @tagged('post_install', '-at_install')
@@ -34,14 +40,14 @@ class TestCashOnDelivery(NeoshipShippingCommon):
         }
 
     def _cod(self, picking, package_id=501):
-        calls = self._send(picking, NOT_FOUND, created(package_id, f'TRK{package_id}'), label())
+        calls = self._send_new(picking, created(package_id, f'TRK{package_id}'))
         return self._sent_package(calls).get('cod_price')
 
     def test_single_delivery_collects_order_total(self):
         order = self._order(self._line(self.mug, 3, 8.0), self._line(self.delivery_product, 1, 4.0))
         picking = order.picking_ids
         self._validate(picking)
-        package = self._sent_package(self._send(picking, NOT_FOUND, created(), label()))
+        package = self._sent_package(self._send_new(picking, created()))
         self.assertEqual(package['cod_price'], 34.44)
         self.assertEqual(package['cod_price'], order.amount_total)
         self.assertEqual(package['cod_currency_code'], order.currency_id.name)
@@ -134,3 +140,125 @@ class TestCashOnDelivery(NeoshipShippingCommon):
 
         picking.write({'neoship_cod_manual': True, 'neoship_cod_manual_amount': 5.0})
         self.assertEqual(self._cod(picking), 5.0)
+
+    def test_dpd_reference_is_last_ten_digits_of_order_number(self):
+        self.carrier.neoship_shipper_code = const.SHIPPER_CODE_DPD
+        order = self._order(self._line(self.mug, 1, 8.0))
+        order.name = 'S2026/10/000123456789'
+        picking = order.picking_ids
+        self._validate(picking)
+        package = self._sent_package(self._send_new(picking, created()))
+        self.assertEqual(package['cod_reference'], '0123456789')
+
+    def test_dpd_reference_without_digits_uses_order_id(self):
+        self.carrier.neoship_shipper_code = const.SHIPPER_CODE_DPD
+        order = self._order(self._line(self.mug, 1, 8.0))
+        order.name = 'WEB-ORDER'
+        picking = order.picking_ids
+        self._validate(picking)
+        self.assertEqual(picking._neoship_cod_values()['cod_reference'], str(order.id))
+
+    def test_dpd_reference_without_order_uses_transfer_number(self):
+        self.carrier.neoship_shipper_code = const.SHIPPER_CODE_DPD
+        picking = self.env['stock.picking'].create(
+            {
+                'picking_type_id': self.warehouse.out_type_id.id,
+                'partner_id': self.customer.id,
+                'carrier_id': self.carrier.id,
+                'neoship_cod_manual': True,
+                'neoship_cod_manual_amount': 5.0,
+            }
+        )
+        picking.name = 'WH/OUT/00012'
+        self.assertEqual(picking._neoship_cod_values()['cod_reference'], '00012')
+
+    def _czk_picking(self, amount):
+        order = self._order(self._line(self.mug, 1, 8.0))
+        picking = order.picking_ids
+        self._validate(picking)
+        picking.write({'neoship_cod_manual': True, 'neoship_cod_manual_amount': amount})
+        czk = self.env.ref('base.CZK')
+        for currency, rate in ((czk, 25.0), (self.env.ref('base.EUR'), 1.0)):
+            currency.active = True
+            self.env['res.currency.rate'].create(
+                {'currency_id': currency.id, 'rate': rate, 'name': fields.Date.context_today(picking)}
+            )
+        return picking, czk
+
+    def test_cash_on_delivery_in_currency_neoship_collects_is_sent_unchanged(self):
+        picking, czk = self._czk_picking(301.40)
+        self.customer.country_id = self.env.ref('base.cz')
+        with patch.object(type(picking), '_neoship_cod_currency', return_value=czk):
+            calls = self._send_new(picking, created(), currencies=('CZK',))
+        package = self._sent_package(calls)
+        self.assertEqual((package['cod_price'], package['cod_currency_code']), (301.40, 'CZK'))
+        self.assertEqual(calls[2]['url'], TEST_URL + '/codlimit/2/701')
+
+    def test_cash_on_delivery_is_converted_to_currency_neoship_collects(self):
+        picking, czk = self._czk_picking(301.40)
+        with patch.object(type(picking), '_neoship_cod_currency', return_value=czk):
+            calls = self._send_new(picking, created(), currencies=('EUR',))
+        package = self._sent_package(calls)
+        self.assertEqual((package['cod_price'], package['cod_currency_code']), (12.06, 'EUR'))
+        self.assertEqual(calls[2]['url'], TEST_URL + '/codlimit/2/703')
+        parcel = picking.neoship_parcel_ids
+        self.assertEqual((parcel.cod_amount, parcel.cod_currency_id.name), (12.06, 'EUR'))
+        message = picking.message_ids.filtered(lambda message: 'was converted' in (message.body or ''))
+        self.assertIn('12.06', message.body)
+
+    def test_cash_on_delivery_is_refused_where_carrier_does_not_collect_it(self):
+        order = self._order(self._line(self.mug, 1, 8.0))
+        picking = order.picking_ids
+        self._validate(picking)
+        with (
+            mock_neoship(login_ok(), *cod_limits()) as calls,
+            self.assertRaisesRegex(UserError, 'SPS does not collect cash on delivery in Slovakia'),
+        ):
+            picking.send_to_shipper()
+        self.assertEqual(len(calls), 3)
+
+    def test_cash_on_delivery_is_not_converted_without_exchange_rate(self):
+        picking, czk = self._czk_picking(301.40)
+        self.env.ref('base.HUF').rate_ids.unlink()
+        with (
+            patch.object(type(picking), '_neoship_cod_currency', return_value=czk),
+            mock_neoship(login_ok(), *cod_limits('HUF')) as calls,
+            self.assertRaisesRegex(UserError, 'Activate HUF and CZK with exchange rates'),
+        ):
+            picking.send_to_shipper()
+        self.assertEqual(len(calls), 3)
+
+    def test_shipment_is_cancelled_when_neoship_stores_other_currency(self):
+        picking, czk = self._czk_picking(301.40)
+        with (
+            patch.object(type(picking), '_neoship_cod_currency', return_value=czk),
+            mock_neoship(
+                login_ok(),
+                *cod_limits('CZK'),
+                NOT_FOUND,
+                created(),
+                stored(cod_currency_code='EUR'),
+                make_response(json_data={}),
+            ) as calls,
+            self.assertRaisesRegex(UserError, '301.4 EUR instead of 301.4 CZK .* TRK1 was cancelled'),
+        ):
+            picking.send_to_shipper()
+        self.assertEqual(calls[-1]['url'], TEST_URL + '/package/cancel/501')
+
+    def test_shipment_with_other_currency_that_cannot_be_cancelled_is_reported(self):
+        picking, czk = self._czk_picking(301.40)
+        with (
+            patch.object(type(picking), '_neoship_cod_currency', return_value=czk),
+            mock_neoship(
+                login_ok(),
+                *cod_limits('CZK'),
+                NOT_FOUND,
+                created(),
+                stored(cod_currency_code='EUR'),
+                make_response(500, {'message': 'Internal error'}),
+            ) as calls,
+            self.assertRaisesRegex(UserError, '301.4 EUR instead of 301.4 CZK .* TRK1 could not be cancelled'),
+        ):
+            picking.send_to_shipper()
+        self.assertEqual(calls[-1]['url'], TEST_URL + '/package/cancel/501')
+        self.assertFalse(picking.neoship_parcel_ids)
