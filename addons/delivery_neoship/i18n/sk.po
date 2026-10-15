@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0-20260926\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-13 07:10+0000\n"
+"POT-Creation-Date: 2026-10-14 14:30+0000\n"
 "PO-Revision-Date: 2026-10-13 07:10+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -15,6 +15,12 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: \n"
 "Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid "%(amount)s to %(converted)s"
+msgstr "%(amount)s na %(converted)s"
 
 #. module: delivery_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
@@ -117,9 +123,32 @@ msgid "Cash on Delivery Amount"
 msgstr "Suma dobierky"
 
 #. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__cod_currency_id
+msgid "Cash on Delivery Currency"
+msgstr "Mena dobierky"
+
+#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_cod_domain
 msgid "Cash on Delivery Orders"
 msgstr "Objednávky na dobierku"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Cash on delivery amount"
+msgstr "Suma dobierky"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Cash on delivery currency"
+msgstr "Mena dobierky"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Cash on delivery reference"
+msgstr "Referencia dobierky"
 
 #. module: delivery_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
@@ -589,6 +618,11 @@ msgid "Neoship Password"
 msgstr "Heslo Neoship"
 
 #. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__neoship_parcelshop_carrier_type
+msgid "Neoship Pickup Point Carrier ID"
+msgstr "ID dopravcu výdajného miesta Neoship"
+
+#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__neoship_parcelshop_id
 msgid "Neoship Pickup Point ID"
 msgstr "ID výdajného miesta Neoship"
@@ -599,6 +633,11 @@ msgstr "ID výdajného miesta Neoship"
 #: model:ir.ui.menu,name:delivery_neoship.menu_neoship_closure_config
 msgid "Neoship Protocols"
 msgstr "Protokoly Neoship"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_reference
+msgid "Neoship Reference"
+msgstr "Referencia Neoship"
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_status
@@ -624,6 +663,18 @@ msgstr ""
 #. odoo-python
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid ""
+"Neoship carrier %(carrier)s does not collect cash on delivery in "
+"%(country)s. Send transfer %(transfer)s without cash on delivery or use "
+"another delivery method."
+msgstr ""
+"Dopravca Neoship %(carrier)s nevyberá dobierku v krajine %(country)s. "
+"Odošlite dodací list %(transfer)s bez dobierky alebo použite inú dopravnú "
+"metódu."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
 "Neoship carrier %(carrier)s is not in the price list of your Neoship "
 "account. Choose another carrier on delivery method %(method)s or ask Neoship"
 " to add it."
@@ -637,6 +688,40 @@ msgstr ""
 #: code:addons/delivery_neoship/models/neoship_closure.py:0
 msgid "Neoship closed nothing and returned no protocol."
 msgstr "Neoship nič neuzavrel a nevrátil žiadny protokol."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Neoship collects cash on delivery in %(country)s only in %(target)s, so "
+"%(amounts)s was converted at the rate of %(date)s."
+msgstr ""
+"Neoship vyberá dobierku v krajine %(country)s iba v mene %(target)s, preto "
+"bolo %(amounts)s prepočítané kurzom k %(date)s."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Neoship collects cash on delivery in %(country)s only in %(target)s. "
+"Activate %(target)s and %(currency)s with exchange rates, so the cash on "
+"delivery of transfer %(transfer)s can be converted."
+msgstr ""
+"Neoship vyberá dobierku v krajine %(country)s iba v mene %(target)s. "
+"Aktivujte meny %(target)s a %(currency)s s kurzami, aby sa dobierka "
+"dodacieho listu %(transfer)s dala prepočítať."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship created shipment %(tracking)s for transfer %(transfer)s, but its "
+"cash on delivery could not be checked: %(error)s. Validate again: the "
+"shipment is found by its reference and checked."
+msgstr ""
+"Neoship vytvoril zásielku %(tracking)s pre dodací list %(transfer)s, ale jej"
+" dobierku sa nepodarilo overiť: %(error)s. Validujte znova: zásielka sa "
+"nájde podľa referencie a overí sa."
 
 #. module: delivery_neoship
 #. odoo-python
@@ -702,6 +787,12 @@ msgstr "Neoship odmietol stornovať balík, pretože ho už má dopravca."
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "Neoship rejected the login: %s"
 msgstr "Neoship odmietol prihlásenie: %s"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Neoship rejected the shipment data: %s"
+msgstr "Neoship odmietol údaje zásielky: %s"
 
 #. module: delivery_neoship
 #. odoo-python
@@ -782,6 +873,30 @@ msgstr "Zásielka Neoship %s sa nenašla."
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "Neoship shipping label"
 msgstr "Prepravný štítok Neoship"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship stored cash on delivery %(stored)s instead of %(sent)s for transfer "
+"%(transfer)s and shipment %(tracking)s could not be cancelled: %(error)s. "
+"Cancel it in Neoship."
+msgstr ""
+"Neoship uložil pre dodací list %(transfer)s dobierku %(stored)s namiesto "
+"%(sent)s a zásielku %(tracking)s sa nepodarilo stornovať: %(error)s. "
+"Stornujte ju v Neoship."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid ""
+"Neoship stored cash on delivery %(stored)s instead of %(sent)s for transfer "
+"%(transfer)s, so shipment %(tracking)s was cancelled. Ask Neoship which "
+"currency carrier %(carrier)s collects in."
+msgstr ""
+"Neoship uložil pre dodací list %(transfer)s dobierku %(stored)s namiesto "
+"%(sent)s, preto bola zásielka %(tracking)s stornovaná. Opýtajte sa Neoship, "
+"v akej mene dopravca %(carrier)s vyberá dobierku."
 
 #. module: delivery_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_internal_search_neoship
@@ -878,6 +993,12 @@ msgstr "Nebolo čo uzavrieť"
 #. module: delivery_neoship
 #. odoo-python
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Number of parcels"
+msgstr "Počet balíkov"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "Open closure schedule"
 msgstr "Otvoriť plán uzávierky"
 
@@ -902,6 +1023,21 @@ msgstr "ID služby Packeta na adresu"
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_carrier_type_country_id
 msgid "Packeta Home Delivery Country"
 msgstr "Krajina služby Packeta na adresu"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_sale_order__neoship_parcelshop_carrier_type
+msgid ""
+"Packeta ID of the external carrier that runs the pickup point, sent by the "
+"e-shop. Leave empty for Packeta's own pickup points."
+msgstr ""
+"ID externého dopravcu v Packete, ktorý prevádzkuje výdajné miesto, odoslané "
+"e-shopom. Pri vlastných výdajných miestach Packety nechajte prázdne."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Packeta carrier"
+msgstr "Služba Packeta"
 
 #. module: delivery_neoship
 #. odoo-python
@@ -968,6 +1104,12 @@ msgid "Pickup Points Only"
 msgstr "Iba výdajné miesta"
 
 #. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Pickup point"
+msgstr "Výdajné miesto"
+
+#. module: delivery_neoship
 #: model:ir.model.fields,help:delivery_neoship.field_sale_order__neoship_parcelshop_id
 msgid ""
 "Pickup point ID sent by the e-shop. Neoship shipments of this order go to "
@@ -1025,9 +1167,26 @@ msgid "Recipient %(partner)s is missing: %(fields)s"
 msgstr "Príjemcovi %(partner)s chýba: %(fields)s"
 
 #. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Recipient %s"
+msgstr "Príjemca – %s"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__reference
 msgid "Reference"
 msgstr "Referencia"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_stock_picking__neoship_reference
+msgid ""
+"Reference of the shipment in Neoship, kept from the first time the transfer "
+"was sent."
+msgstr ""
+"Referencia zásielky v Neoship, zachovaná od prvého odoslania dodacieho "
+"listu."
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure__state
@@ -1089,6 +1248,12 @@ msgstr ""
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "Sender %(partner)s is missing: %(fields)s"
 msgstr "Odosielateľovi %(partner)s chýba: %(fields)s"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Sender %s"
+msgstr "Odosielateľ – %s"
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__sequence
@@ -1285,6 +1450,16 @@ msgstr ""
 #. module: delivery_neoship
 #. odoo-python
 #: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Transfer %(transfer)s is delivery %(delivery)s of order %(order)s, but "
+"Neoship references number at most %(limit)s deliveries of an order."
+msgstr ""
+"Dodací list %(transfer)s je %(delivery)s. dodávka objednávky %(order)s, ale "
+"referencie Neoship číslujú najviac %(limit)s dodávok jednej objednávky."
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "Transfer %s cannot be sent to Neoship."
 msgstr "Dodací list %s nemožno odoslať do Neoship."
 
@@ -1329,48 +1504,60 @@ msgid "Wed"
 msgstr "St"
 
 #. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "Weight"
+msgstr "Hmotnosť"
+
+#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard_line__wizard_id
 msgid "Wizard"
 msgstr "Sprievodca"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "ZIP"
 msgstr "PSČ"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "city"
 msgstr "mesto"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "company"
+msgstr "spoločnosť"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "country"
 msgstr "krajina"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "email"
 msgstr "e-mail"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "name"
 msgstr "meno"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "phone"
 msgstr "telefón"
 
 #. module: delivery_neoship
 #. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "street"
 msgstr "ulica"

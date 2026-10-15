@@ -10,6 +10,14 @@ class SaleOrder(models.Model):
         copy=False,
         help='Pickup point ID sent by the e-shop. Neoship shipments of this order go to this pickup point.',
     )
+    neoship_parcelshop_carrier_type = fields.Integer(
+        string='Neoship Pickup Point Carrier ID',
+        copy=False,
+        help=(
+            'Packeta ID of the external carrier that runs the pickup point, sent by the e-shop. '
+            "Leave empty for Packeta's own pickup points."
+        ),
+    )
     neoship_parcel_count = fields.Integer(compute='_compute_neoship_parcel_count')
 
     @api.depends('picking_ids.neoship_parcel_ids')

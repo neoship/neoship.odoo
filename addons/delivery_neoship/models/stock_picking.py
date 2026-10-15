@@ -213,6 +213,8 @@ class StockPicking(models.Model):
         parcelshop = self.sale_id.neoship_parcelshop_id
         if parcelshop:
             package['parcelshop'] = parcelshop
+            if carrier.neoship_has_carrier_type and self.sale_id.neoship_parcelshop_carrier_type:
+                package['carrier_type'] = self.sale_id.neoship_parcelshop_carrier_type
         elif carrier.neoship_has_carrier_type:
             self._neoship_check_packeta_country(receiver)
             package['carrier_type'] = carrier.neoship_carrier_type

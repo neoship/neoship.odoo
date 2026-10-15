@@ -689,6 +689,19 @@ class TestSendShipping(NeoshipShippingCommon):
         self.assertEqual(package['parcelshop'], 'PS-1234')
         self.assertNotIn('carrier_type', package)
 
+    def test_packeta_external_carrier_pickup_point_sends_its_carrier(self):
+        self._use_packeta()
+        self.order.write({'neoship_parcelshop_id': '20376', 'neoship_parcelshop_carrier_type': 26067})
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['parcelshop'], '20376')
+        self.assertEqual(package['carrier_type'], 26067)
+
+    def test_pickup_point_carrier_is_not_sent_to_shipper_without_carriers(self):
+        self.order.write({'neoship_parcelshop_id': 'PS-1234', 'neoship_parcelshop_carrier_type': 26067})
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['parcelshop'], 'PS-1234')
+        self.assertNotIn('carrier_type', package)
+
     def test_packeta_pickup_point_label_format_is_used_for_pickup_point(self):
         self._use_packeta(neoship_label_format='A7 on A4', neoship_label_format_fallback='A6 on A4')
         self.order.neoship_parcelshop_id = 'PS-1234'
