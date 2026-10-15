@@ -747,11 +747,15 @@ class TestSendShipping(NeoshipShippingCommon):
         calls = self._send(self._picking(), NOT_FOUND, created(), label())
         self.assertEqual(self._sent_print_type(calls), 'A6 on A4')
 
-    def test_packeta_weight_limit(self):
+    def test_packeta_weight_over_neoship_limit_is_left_to_neoship(self):
         self._use_packeta()
         self.product.weight = 10
-        with self.assertRaisesRegex(UserError, 'Packeta needs a weight'):
-            self._picking().send_to_shipper()
+        picking = self._picking()
+        invalid = make_response(422, [{'reference_number': 'X', 'errors': {'weight': ['Maximum is 15 kg.']}}])
+        with self.assertRaises(UserError) as raised:
+            self._send(picking, NOT_FOUND, invalid)
+        self.assertEqual(str(raised.exception), 'Neoship rejected the shipment data: Weight: Maximum is 15 kg.')
+        self.assertFalse(picking.neoship_parcel_ids)
 
     def test_default_weight_is_used_without_product_weight(self):
         self.product.weight = 0
@@ -931,15 +935,12 @@ class TestSendShipping(NeoshipShippingCommon):
         self.assertEqual(picking.neoship_parcel_ids.tracking_ref, 'TRK1')
         self.assertEqual(picking.neoship_parcel_ids.package_id, picking._neoship_packs())
 
-    def test_packeta_weight_limit_applies_to_each_parcel(self):
+    def test_packeta_sends_the_weight_of_each_parcel(self):
         self._use_packeta()
-        picking = self._packed_picking(10.0, 10.0)
-        self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        picking = self._packed_picking(10.0, 16.0)
+        calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        self.assertEqual([package['weight'] for package in self._sent_packages(calls)], [10.0, 16.0])
         self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
-
-        with mock_neoship() as calls, self.assertRaisesRegex(UserError, 'for each parcel, parcel PACK-1'):
-            self._packed_picking(16.0, 1.0).send_to_shipper()
-        self.assertFalse(calls)
 
     def test_other_carriers_send_pack_count_and_store_copies_as_parcels(self):
         picking = self._packed_picking(1.0, 2.5)

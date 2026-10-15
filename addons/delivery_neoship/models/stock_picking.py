@@ -154,7 +154,7 @@ class StockPicking(models.Model):
                         parcel.pop(field, None)
                 parcel['reference_number'] = neoship_parcel_reference(package['reference_number'], sequence)
                 weight = self._neoship_weight_kg(pack.shipping_weight or pack.weight)
-                self._neoship_set_weight(parcel, weight, pack.name)
+                self._neoship_set_weight(parcel, weight)
                 packages.append(parcel)
             return packages
         count = len(packs) or 1
@@ -174,25 +174,8 @@ class StockPicking(models.Model):
             self.carrier_id._neoship_ignores_package_count() or bool(self.sale_id.neoship_parcelshop_id)
         )
 
-    def _neoship_set_weight(self, package, weight, parcel_name=None):
-        if self.carrier_id.neoship_has_carrier_type and not 0 < weight <= const.PACKETA_MAX_WEIGHT_KG:
-            if parcel_name:
-                message = self.env._(
-                    'Packeta needs a weight between 0 and %(max)s kg for each parcel, '
-                    'parcel %(parcel)s of transfer %(transfer)s has %(weight)s kg.',
-                    max=const.PACKETA_MAX_WEIGHT_KG,
-                    parcel=parcel_name,
-                    transfer=self.name,
-                    weight=weight,
-                )
-            else:
-                message = self.env._(
-                    'Packeta needs a weight between 0 and %(max)s kg, transfer %(transfer)s has %(weight)s kg.',
-                    max=const.PACKETA_MAX_WEIGHT_KG,
-                    transfer=self.name,
-                    weight=weight,
-                )
-            raise UserError(message)
+    def _neoship_set_weight(self, package, weight):
+        # Neoship validates the weight against the carrier's limits.
         if weight > 0:
             package['weight'] = weight
 

@@ -1069,26 +1069,6 @@ msgstr ""
 "Packeta uzavrie zásielky vytvorené od tohto dátumu, ktoré ešte nevyzdvihla."
 
 #. module: delivery_neoship
-#. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
-msgid ""
-"Packeta needs a weight between 0 and %(max)s kg for each parcel, parcel "
-"%(parcel)s of transfer %(transfer)s has %(weight)s kg."
-msgstr ""
-"Packeta vyžaduje pre každý balík hmotnosť od 0 do %(max)s kg, balík "
-"%(parcel)s dodacieho listu %(transfer)s má %(weight)s kg."
-
-#. module: delivery_neoship
-#. odoo-python
-#: code:addons/delivery_neoship/models/stock_picking.py:0
-msgid ""
-"Packeta needs a weight between 0 and %(max)s kg, transfer %(transfer)s has "
-"%(weight)s kg."
-msgstr ""
-"Packeta vyžaduje hmotnosť od 0 do %(max)s kg, dodací list %(transfer)s má "
-"%(weight)s kg."
-
-#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__picking_id
 msgid "Picking"
 msgstr "Dodací list"

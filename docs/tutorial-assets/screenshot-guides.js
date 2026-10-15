@@ -89,7 +89,7 @@
       mark([937, 799, 115, 67], [1051, 909], "COD: the 94.50 € cash on delivery is collected at the pickup point.", "COD: dobierka 94,50 € sa vyberie na výdajnom mieste."),
     ],
     "27-overweight-error.webp": [
-      mark([163, 473, 1114, 61], [1332, 504], "Odoo stops before calling Neoship: 15.75 kg exceeds Packeta's 15 kg limit.", "Odoo zastaví ešte pred volaním Neoship: 15,75 kg prekračuje limit Packety 15 kg."),
+      mark([163, 473, 1114, 61], [1332, 504], "Neoship refuses the data: 15.75 kg exceeds Packeta's 15 kg limit, and nothing is created.", "Neoship údaje odmietne: 15,75 kg prekračuje limit Packety 15 kg a nič sa nevytvorí."),
       mark([178, 526, 66, 41], [296, 566], "Close, then split the goods into boxes of at most 15 kg (or correct Weight for shipping) and validate again.", "Zavrite správu, rozdeľte tovar do balíkov s najviac 15 kg (alebo opravte Weight for shipping) a validujte znova."),
     ],
     "28-tracking-filters.webp": [
