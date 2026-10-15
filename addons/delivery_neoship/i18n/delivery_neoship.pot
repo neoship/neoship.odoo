@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0-20260926\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-14 14:30+0000\n"
-"PO-Revision-Date: 2026-10-14 14:30+0000\n"
+"POT-Creation-Date: 2026-10-15 12:26+0000\n"
+"PO-Revision-Date: 2026-10-15 12:26+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -1192,6 +1192,13 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_delivery_carrier
 msgid "Shipping Methods"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid ""
+"Shipping with this method sends the sender's and recipient's name, address, "
+"email and phone, the weight and the cash on delivery amount to Neoship."
 msgstr ""
 
 #. module: delivery_neoship

@@ -17,6 +17,9 @@
         'views/neoship_closure_views.xml',
     ],
     'author': 'Neoship',
+    'website': 'https://www.neoship.sk',
+    'support': 'klientservis@neoship.sk',
+    'images': ['static/description/banner.png'],
     'license': 'LGPL-3',
     'installable': True,
 }

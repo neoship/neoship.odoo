@@ -23,6 +23,9 @@
                             <field name="neoship_username" required="delivery_type == 'neoship'"/>
                             <field name="neoship_password" password="True" required="delivery_type == 'neoship'"/>
                             <button name="action_neoship_test_connection" type="object" string="Test Connection" icon="fa-plug" class="btn-secondary" colspan="2"/>
+                            <div class="text-muted small mt-2" colspan="2">
+                                Shipping with this method sends the sender's and recipient's name, address, email and phone, the weight and the cash on delivery amount to Neoship.
+                            </div>
                         </group>
                         <group name="neoship_shipping" string="Shipping">
                             <field name="neoship_shipper_id" invisible="1"/>
