@@ -27,7 +27,8 @@ services:
       USER: odoo
       PASSWORD: odoo
     volumes:
-      - ./addons:/mnt/extra-addons
+      - ./delivery_neoship:/mnt/extra-addons/delivery_neoship
+      - ./delivery_neoship_mrp:/mnt/extra-addons/delivery_neoship_mrp
       - ./config:/etc/odoo
       - odoo-data:/var/lib/odoo
     command: ["--dev=reload,xml"]

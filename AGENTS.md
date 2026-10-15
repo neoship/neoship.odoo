@@ -10,7 +10,7 @@
 
 ## No magic values
 
-- Do not repeat string literals for selection keys, states, carrier shortcuts, API action names or similar codes in Python. Define them once in `addons/delivery_neoship/const.py` and import them: `vals.get('delivery_type') == const.DELIVERY_TYPE`, not `== 'neoship'`.
+- Do not repeat string literals for selection keys, states, carrier shortcuts, API action names or similar codes in Python. Define them once in `delivery_neoship/const.py` and import them: `vals.get('delivery_type') == const.DELIVERY_TYPE`, not `== 'neoship'`.
 - This includes Odoo core values our code depends on (e.g. `const.ODOO_DELIVERY_TYPE_FIXED`).
 - Use plain module-level constants (or dicts/tuples of them for related sets). Odoo 19 supports Python 3.10, so `enum.StrEnum` is not available.
 - Field names, Odoo framework keys (`'type': 'ir.actions.client'`, notification params) and HTTP methods/paths in the API client are not domain values and stay literal.
