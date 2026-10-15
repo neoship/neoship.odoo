@@ -377,11 +377,18 @@ class TestSendShipping(NeoshipShippingCommon):
         self.assertFalse([call for call in calls if '/bulk-create-and-print/' in call['url']])
         self.assertFalse(picking.neoship_parcel_ids)
 
-    def test_existing_shipment_with_prefixed_phone_is_linked(self):
-        self.customer.phone = '900 123 456'
+    def test_existing_shipment_with_unprefixed_phone_is_linked(self):
+        self.customer.phone = '0900 123 456'
         picking = self._picking()
-        self._assert_linked(picking, found(picking, receiver_phone='+48900123456'))
+        self._assert_linked(picking, found(picking, receiver_phone='0900123456'))
         self.assertEqual(picking.neoship_parcel_ids.neoship_id, 777)
+
+    def test_existing_shipment_with_another_phone_is_replaced(self):
+        self.customer.phone = '0900 123 456'
+        picking = self._picking()
+        self._assert_replaced(
+            picking, found(picking, receiver_phone='+420900123457'), 'receiver_phone: +420900123457 → +421900123456'
+        )
 
     def test_existing_shipment_with_same_weight_is_linked(self):
         picking = self._picking()
@@ -577,6 +584,33 @@ class TestSendShipping(NeoshipShippingCommon):
     def test_phone_whitespace_is_removed(self):
         self.customer.phone = '+421 905\u00a0123 456'
         package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['receiver_phone'], '+421905123456')
+
+    def test_local_phone_gets_the_country_prefix(self):
+        self.customer.phone = '0905 123 456'
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['receiver_phone'], '+421905123456')
+
+    def test_phone_with_international_zeros_gets_a_plus(self):
+        self.customer.phone = '00420 777 123 456'
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['receiver_phone'], '+420777123456')
+
+    def test_phone_prefix_follows_the_contact_the_phone_belongs_to(self):
+        self.customer.phone = '0905 123 456'
+        delivery_address = self.env['res.partner'].create(
+            {
+                'name': 'Delivery Address',
+                'parent_id': self.customer.id,
+                'type': 'delivery',
+                'street': 'Vaci ut 1',
+                'city': 'Budapest',
+                'zip': '1062',
+                'country_id': self.env.ref('base.hu').id,
+                'phone': False,
+            }
+        )
+        package = self._sent_package(self._send(self._picking(partner=delivery_address), NOT_FOUND, created(), label()))
         self.assertEqual(package['receiver_phone'], '+421905123456')
 
     def test_contact_falls_back_to_order_customer(self):

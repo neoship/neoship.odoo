@@ -224,6 +224,7 @@ class StockPicking(models.Model):
 
     def _neoship_address_values(self, prefix, partner, contacts):
         commercial = partner.commercial_partner_id
+        phone_contact = contacts.filtered('phone')[:1]
         return {
             f'{prefix}_name': partner.name or commercial.name,
             f'{prefix}_company': commercial.name if commercial.is_company and commercial != partner else '',
@@ -232,7 +233,7 @@ class StockPicking(models.Model):
             f'{prefix}_zip': partner.zip,
             f'{prefix}_state_code': partner.country_id.code,
             f'{prefix}_email': next(iter(contacts.filtered('email').mapped('email')), False),
-            f'{prefix}_phone': neoship_phone(next(iter(contacts.filtered('phone').mapped('phone')), '')),
+            f'{prefix}_phone': neoship_phone(phone_contact.phone, phone_contact.country_id or partner.country_id),
         }
 
     def _neoship_check_addresses(self, package, sender, receiver):

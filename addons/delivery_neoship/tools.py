@@ -41,13 +41,21 @@ def neoship_digits(value):
     return re.sub(r'\D', '', value or '')
 
 
-def neoship_phone(value):
-    return re.sub(r'\s+', '', value or '')
+def neoship_phone(value, country=None):
+    phone = re.sub(r'\s+', '', value or '')
+    if not phone or phone.startswith('+') or not country or not country.phone_code:
+        return phone
+    if phone.startswith('00'):
+        return f'+{phone[2:]}'
+    return f'+{country.phone_code}{phone.removeprefix("0")}'
 
 
 def neoship_same_phone(old, new):
-    # Neoship may store the number with a country prefix it added, e.g. +48 for Polish Packeta carriers.
-    return old == new or bool(old and new and (old.endswith(new) or new.endswith(old)))
+    # Either side may lack the country prefix: shipments sent before it was added, or +48 added by Neoship.
+    old_digits, new_digits = (neoship_digits(phone).lstrip('0') for phone in (old, new))
+    return old == new or bool(
+        old_digits and new_digits and (old_digits.endswith(new_digits) or new_digits.endswith(old_digits))
+    )
 
 
 def neoship_status_group(status):
