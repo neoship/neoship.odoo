@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="stock_put_in_pack_form_neoship" model="ir.ui.view">
+        <field name="name">stock.put.in.pack.form.neoship</field>
+        <field name="model">stock.put.in.pack</field>
+        <field name="inherit_id" ref="stock_delivery.stock_put_in_pack_form"/>
+        <field name="arch" type="xml">
+            <field name="package_carrier_type" position="after">
+                <field name="neoship_package_type_ids" invisible="1"/>
+            </field>
+            <field name="package_type_id" position="attributes">
+                <attribute name="domain">['|', ('id', 'in', neoship_package_type_ids), '&amp;', ('package_carrier_type', '=?', package_carrier_type), ('package_carrier_type', '!=', 'neoship')]</attribute>
+            </field>
+        </field>
+    </record>
+</odoo>

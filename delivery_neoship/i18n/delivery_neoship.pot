@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0-20260926\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-15 12:26+0000\n"
-"PO-Revision-Date: 2026-10-15 12:26+0000\n"
+"POT-Creation-Date: 2026-10-23 08:21+0000\n"
+"PO-Revision-Date: 2026-10-23 08:21+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -19,6 +19,18 @@ msgstr ""
 #. odoo-python
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "%(amount)s to %(converted)s"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "%(carrier)s %(category)s (%(length)s × %(width)s × %(height)s cm)"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "%s package types of Packeta carriers are ready."
 msgstr ""
 
 #. module: delivery_neoship
@@ -97,6 +109,7 @@ msgstr ""
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__carrier_id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__package_carrier_type
 msgid "Carrier"
 msgstr ""
 
@@ -290,6 +303,11 @@ msgid "Days"
 msgstr ""
 
 #. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_package_type_id
+msgid "Default Package Type"
+msgstr ""
+
+#. module: delivery_neoship
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__delivered
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__delivered
 msgid "Delivered"
@@ -331,7 +349,9 @@ msgstr ""
 #: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__display_name
 msgid "Display Name"
 msgstr ""
 
@@ -392,7 +412,9 @@ msgstr ""
 #: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__id
 msgid "ID"
 msgstr ""
 
@@ -405,6 +427,14 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__is_copy
 msgid "Is Copy"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_package_type_id
+msgid ""
+"Its size category is sent for parcels without a Neoship package type, unless"
+" it belongs to another Packeta carrier. Without one, Neoship uses the "
+"largest size of the carrier."
 msgstr ""
 
 #. module: delivery_neoship
@@ -427,6 +457,11 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_label_format
 msgid "Label Format Code"
+msgstr ""
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Largest size of the carrier"
 msgstr ""
 
 #. module: delivery_neoship
@@ -458,6 +493,11 @@ msgid "Line"
 msgstr ""
 
 #. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Load Packeta Sizes"
+msgstr ""
+
+#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_cod_manual
 msgid "Manual Cash on Delivery"
 msgstr ""
@@ -484,6 +524,7 @@ msgstr ""
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__delivery_carrier__delivery_type__neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_package_type__package_carrier_type__neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.stock_package_view_form_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_order_form_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_form_neoship
@@ -571,6 +612,11 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_neoship_option_wizard_line
 msgid "Neoship Option"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__neoship_package_type_ids
+msgid "Neoship Package Type"
 msgstr ""
 
 #. module: delivery_neoship
@@ -939,9 +985,22 @@ msgid "Open closure schedule"
 msgstr ""
 
 #. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Pack %(pack)s of transfer %(transfer)s has package type %(type)s, a size of "
+"another Packeta carrier than the one the transfer is sent with."
+msgstr ""
+
+#. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_stock_package
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__package_id
 msgid "Package"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__neoship_carrier_type
+msgid "Packeta Carrier ID"
 msgstr ""
 
 #. module: delivery_neoship
@@ -987,6 +1046,13 @@ msgstr ""
 msgid ""
 "Packeta carrier used for delivery to an address. Pickup point orders go to "
 "the pickup point."
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_stock_package_type__neoship_carrier_type
+msgid ""
+"Packeta carrier whose size category is in Carrier Code. Packs of this type "
+"are refused before sending to another carrier."
 msgstr ""
 
 #. module: delivery_neoship
@@ -1054,6 +1120,11 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__delivery_type
 msgid "Provider"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_put_in_pack
+msgid "Put In Pack Wizard"
 msgstr ""
 
 #. module: delivery_neoship
@@ -1219,6 +1290,11 @@ msgstr ""
 #. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_stock_move
 msgid "Stock Move"
+msgstr ""
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_package_type
+msgid "Stock package type"
 msgstr ""
 
 #. module: delivery_neoship

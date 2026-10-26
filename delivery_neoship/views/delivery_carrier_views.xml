@@ -47,6 +47,11 @@
                                 <button name="action_neoship_choose_carrier_type" type="object" string="Choose" icon="fa-list" class="btn-link"/>
                             </div>
                             <field name="neoship_carrier_type_country_id" invisible="not neoship_has_carrier_type"/>
+                            <label for="neoship_package_type_id" invisible="not neoship_has_carrier_type"/>
+                            <div class="o_row" invisible="not neoship_has_carrier_type">
+                                <field name="neoship_package_type_id" placeholder="Largest size of the carrier"/>
+                                <button name="action_neoship_load_package_types" type="object" string="Load Packeta Sizes" icon="fa-download" class="btn-link"/>
+                            </div>
                             <label for="neoship_label_format_name" invisible="not neoship_shipper_id"/>
                             <div class="o_row" invisible="not neoship_shipper_id">
                                 <field name="neoship_label_format_name" placeholder="Not selected"/>

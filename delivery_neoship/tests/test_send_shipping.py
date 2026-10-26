@@ -1,11 +1,13 @@
 from unittest.mock import patch
 
 import requests
+from lxml import etree
 from psycopg2.errors import CheckViolation, UniqueViolation
 
 from odoo.exceptions import LockError, UserError
 from odoo.tests import new_test_user, tagged
 from odoo.tools import mute_logger
+from odoo.tools.safe_eval import safe_eval
 
 from odoo.addons.delivery_neoship import const
 from odoo.addons.delivery_neoship.models.neoship_api import PROD_URL, TEST_TRACKING_URL, TEST_URL
@@ -941,6 +943,134 @@ class TestSendShipping(NeoshipShippingCommon):
         calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
         self.assertEqual([package['weight'] for package in self._sent_packages(calls)], [10.0, 16.0])
         self.assertEqual(picking.carrier_tracking_ref, 'TRK1,TRK2')
+
+    def _size(self, code, carrier_type=3060):
+        return self.env['stock.package.type'].create(
+            {
+                'name': f'Size {code}',
+                'package_carrier_type': const.DELIVERY_TYPE,
+                'neoship_carrier_type': carrier_type,
+                'shipper_package_code': code,
+            }
+        )
+
+    def _send_one_pack(self, package_type):
+        picking = self._packed_picking(1.0)
+        picking._neoship_packs().package_type_id = package_type
+        reference = picking._neoship_reference()
+        return self._sent_package(self._send(picking, NOT_FOUND, created(reference=reference), label()))
+
+    def test_packeta_sends_the_size_category_of_each_pack(self):
+        self._use_packeta()
+        self.order.write({'neoship_parcelshop_id': '20376', 'neoship_parcelshop_carrier_type': 3060})
+        picking = self._packed_picking(1.0, 2.5)
+        packs = picking._neoship_packs()
+        packs[0].package_type_id = self._size('A')
+        packs[1].package_type_id = self._size('C')
+        calls = self._send(picking, NOT_FOUND, created_parcels(picking, (501, 'TRK1'), (502, 'TRK2')), label())
+        self.assertEqual(
+            [package['others'] for package in self._sent_packages(calls)],
+            [{'size_category': 'A'}, {'size_category': 'C'}],
+        )
+
+    def test_packeta_sends_the_size_category_of_its_only_pack(self):
+        self._use_packeta()
+        package = self._send_one_pack(self._size('M', carrier_type=131))
+        self.assertEqual(package['others'], {'size_category': 'M'})
+
+    def test_pack_sized_for_another_packeta_carrier_is_refused_before_calling_neoship(self):
+        self._use_packeta()
+        picking = self._packed_picking(1.0)
+        picking._neoship_packs().package_type_id = self._size('A')
+        with mock_neoship() as calls, self.assertRaisesRegex(UserError, 'size of another Packeta carrier'):
+            picking.send_to_shipper()
+        self.assertFalse(calls)
+
+    def test_pickup_point_of_unknown_carrier_leaves_the_size_check_to_neoship(self):
+        self._use_packeta()
+        self.order.neoship_parcelshop_id = '20376'
+        package = self._send_one_pack(self._size('B'))
+        self.assertNotIn('carrier_type', package)
+        self.assertEqual(package['others'], {'size_category': 'B'})
+
+    def test_default_package_type_is_sent_for_parcels_without_one(self):
+        self._use_packeta(neoship_package_type_id=self._size('L', carrier_type=131).id)
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['others'], {'size_category': 'L'})
+
+    def test_default_package_type_of_another_carrier_is_not_sent(self):
+        self._use_packeta(neoship_package_type_id=self._size('A').id)
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertNotIn('others', package)
+
+    def test_package_type_without_neoship_sends_no_size_category(self):
+        self._use_packeta()
+        package_type = self.env['stock.package.type'].create({'name': 'Box', 'shipper_package_code': 'A'})
+        package = self._send_one_pack(package_type)
+        self.assertNotIn('others', package)
+
+    def test_other_carriers_send_no_size_category(self):
+        package = self._send_one_pack(self._size('A', carrier_type=0))
+        self.assertNotIn('others', package)
+
+    def _put_in_pack_sizes(self, carrier=None):
+        own, home, inpost = self._size('X', carrier_type=0), self._size('M', carrier_type=131), self._size('A')
+        warehouse = self.env['stock.package.type'].create({'name': 'Warehouse box'})
+        picking = self._packed_picking(1.0)
+        if carrier:
+            picking.carrier_id = carrier
+        wizard = self.env['stock.put.in.pack'].create(
+            {
+                'move_line_ids': [(6, 0, picking.move_line_ids.ids)],
+                'package_carrier_type': picking.move_line_ids._get_package_carrier_type_for_pack(),
+            }
+        )
+        arch = wizard.get_views([(False, 'form')])['views']['form']['arch']
+        domain = etree.fromstring(arch).xpath("//field[@name='package_type_id']")[0].get('domain')
+        context = {
+            'package_carrier_type': wizard.package_carrier_type,
+            'neoship_package_type_ids': wizard.neoship_package_type_ids.ids,
+        }
+        offered = self.env['stock.package.type'].search(safe_eval(domain, context))
+        return offered & (own | home | inpost | warehouse), own, home, inpost, warehouse
+
+    def test_put_in_pack_offers_sizes_of_the_home_delivery_carrier(self):
+        self._use_packeta()
+        offered, own, home, _inpost, warehouse = self._put_in_pack_sizes()
+        self.assertEqual(offered, own | home | warehouse)
+
+    def test_put_in_pack_offers_sizes_of_the_pickup_point_carrier(self):
+        self._use_packeta()
+        self.order.write({'neoship_parcelshop_id': 'ADA01M', 'neoship_parcelshop_carrier_type': 3060})
+        offered, own, _home, inpost, warehouse = self._put_in_pack_sizes()
+        self.assertEqual(offered, own | inpost | warehouse)
+
+    def test_put_in_pack_offers_warehouse_boxes_to_a_carrier_without_sizes(self):
+        self._use_packeta()
+        self.order.write({'neoship_parcelshop_id': '20376', 'neoship_parcelshop_carrier_type': 26067})
+        offered, own, _home, _inpost, warehouse = self._put_in_pack_sizes()
+        self.assertEqual(offered, own | warehouse)
+
+    def test_put_in_pack_offers_every_size_for_a_pickup_point_of_unknown_carrier(self):
+        self._use_packeta()
+        self.order.neoship_parcelshop_id = '20376'
+        offered, own, home, inpost, warehouse = self._put_in_pack_sizes()
+        self.assertEqual(offered, own | home | inpost | warehouse)
+
+    def test_put_in_pack_offers_no_packeta_sizes_for_other_carriers(self):
+        offered, own, _home, _inpost, warehouse = self._put_in_pack_sizes()
+        self.assertEqual(offered, own | warehouse)
+
+    def test_put_in_pack_offers_no_neoship_package_types_without_neoship(self):
+        fixed = self.env['delivery.carrier'].create(
+            {
+                'name': 'Own delivery',
+                'delivery_type': const.ODOO_DELIVERY_TYPE_FIXED,
+                'product_id': self.delivery_product.id,
+            }
+        )
+        offered, _own, _home, _inpost, warehouse = self._put_in_pack_sizes(fixed)
+        self.assertEqual(offered, warehouse)
 
     def test_other_carriers_send_pack_count_and_store_copies_as_parcels(self):
         picking = self._packed_picking(1.0, 2.5)

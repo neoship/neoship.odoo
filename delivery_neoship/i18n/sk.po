@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0-20260926\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-15 12:26+0000\n"
+"POT-Creation-Date: 2026-10-22 15:30+0000\n"
 "PO-Revision-Date: 2026-10-13 07:10+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
@@ -21,6 +21,18 @@ msgstr ""
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "%(amount)s to %(converted)s"
 msgstr "%(amount)s na %(converted)s"
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "%(carrier)s %(category)s (%(length)s × %(width)s × %(height)s cm)"
+msgstr ""
+
+#. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/delivery_carrier.py:0
+msgid "%s package types of Packeta carriers are ready."
+msgstr "Typy balíkov služieb Packeta sú pripravené: %s."
 
 #. module: delivery_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
@@ -108,6 +120,7 @@ msgstr ""
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__carrier_id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__package_carrier_type
 msgid "Carrier"
 msgstr "Dopravca"
 
@@ -305,6 +318,11 @@ msgid "Days"
 msgstr "Dni"
 
 #. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_package_type_id
+msgid "Default Package Type"
+msgstr "Predvolený typ balíka"
+
+#. module: delivery_neoship
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__neoship_parcel__status_group__delivered
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_picking__neoship_status_group__delivered
 msgid "Delivered"
@@ -348,6 +366,8 @@ msgstr ""
 #: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__display_name
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__display_name
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__display_name
 msgid "Display Name"
 msgstr "Zobrazovaný názov"
@@ -413,6 +433,8 @@ msgstr "Má iba výdajné miesta"
 #: model:ir.model.fields,field_description:delivery_neoship.field_sale_order__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_move__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_package__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__id
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__id
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__id
 msgid "ID"
 msgstr ""
@@ -427,6 +449,17 @@ msgstr "Na ceste"
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__is_copy
 msgid "Is Copy"
 msgstr "Je kópia"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_delivery_carrier__neoship_package_type_id
+msgid ""
+"Its size category is sent for parcels without a Neoship package type, unless"
+" it belongs to another Packeta carrier. Without one, Neoship uses the "
+"largest size of the carrier."
+msgstr ""
+"Jeho kategória veľkosti sa pošle pre balíky bez typu balíka Neoship, ak "
+"nepatrí inej službe Packeta. Bez neho Neoship použije najväčšiu veľkosť "
+"služby."
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_option_wizard__kind
@@ -449,6 +482,11 @@ msgstr "Formát štítku"
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_label_format
 msgid "Label Format Code"
 msgstr "Kód formátu štítku"
+
+#. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Largest size of the carrier"
+msgstr "Najväčšia veľkosť služby"
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__last_sync
@@ -479,6 +517,11 @@ msgid "Line"
 msgstr "Riadky"
 
 #. module: delivery_neoship
+#: model_terms:ir.ui.view,arch_db:delivery_neoship.view_delivery_carrier_form_neoship
+msgid "Load Packeta Sizes"
+msgstr "Načítať veľkosti Packety"
+
+#. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_stock_picking__neoship_cod_manual
 msgid "Manual Cash on Delivery"
 msgstr "Ručná dobierka"
@@ -505,6 +548,7 @@ msgstr "Názov"
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 #: model:ir.model.fields.selection,name:delivery_neoship.selection__delivery_carrier__delivery_type__neoship
+#: model:ir.model.fields.selection,name:delivery_neoship.selection__stock_package_type__package_carrier_type__neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.stock_package_view_form_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_order_form_neoship
 #: model_terms:ir.ui.view,arch_db:delivery_neoship.view_picking_form_neoship
@@ -593,6 +637,11 @@ msgstr "ID Neoship"
 #: model:ir.model,name:delivery_neoship.model_neoship_option_wizard_line
 msgid "Neoship Option"
 msgstr "Možnosť Neoship"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_put_in_pack__neoship_package_type_ids
+msgid "Neoship Package Type"
+msgstr "Typ balíka Neoship"
 
 #. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_neoship_parcel
@@ -1003,10 +1052,25 @@ msgid "Open closure schedule"
 msgstr "Otvoriť plán uzávierky"
 
 #. module: delivery_neoship
+#. odoo-python
+#: code:addons/delivery_neoship/models/stock_picking.py:0
+msgid ""
+"Pack %(pack)s of transfer %(transfer)s has package type %(type)s, a size of "
+"another Packeta carrier than the one the transfer is sent with."
+msgstr ""
+"Škatuľa %(pack)s dodacieho listu %(transfer)s má typ balíka %(type)s, čo je "
+"veľkosť inej služby Packeta, než ktorou sa dodací list posiela."
+
+#. module: delivery_neoship
 #: model:ir.model,name:delivery_neoship.model_stock_package
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_parcel__package_id
 msgid "Package"
 msgstr "Balík"
+
+#. module: delivery_neoship
+#: model:ir.model.fields,field_description:delivery_neoship.field_stock_package_type__neoship_carrier_type
+msgid "Packeta Carrier ID"
+msgstr "ID služby Packeta"
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__neoship_carrier_type_name
@@ -1059,6 +1123,15 @@ msgid ""
 msgstr ""
 "Služba Packeta na doručenie na adresu. Objednávky s výdajným miestom idú na "
 "výdajné miesto."
+
+#. module: delivery_neoship
+#: model:ir.model.fields,help:delivery_neoship.field_stock_package_type__neoship_carrier_type
+msgid ""
+"Packeta carrier whose size category is in Carrier Code. Packs of this type "
+"are refused before sending to another carrier."
+msgstr ""
+"Služba Packeta, ktorej kategória veľkosti je v poli Kód prepravcu. Škatule "
+"tohto typu sa inej službe neodošlú."
 
 #. module: delivery_neoship
 #: model:ir.model.fields,help:delivery_neoship.field_neoship_closure__date_from
@@ -1129,6 +1202,11 @@ msgstr "Protokoly"
 #: model:ir.model.fields,field_description:delivery_neoship.field_delivery_carrier__delivery_type
 msgid "Provider"
 msgstr "Poskytovateľ"
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_put_in_pack
+msgid "Put In Pack Wizard"
+msgstr "Sprievodca vložením do balíka"
 
 #. module: delivery_neoship
 #. odoo-python
@@ -1306,6 +1384,11 @@ msgstr "ID stavu"
 #: model:ir.model,name:delivery_neoship.model_stock_move
 msgid "Stock Move"
 msgstr "Skladový pohyb"
+
+#. module: delivery_neoship
+#: model:ir.model,name:delivery_neoship.model_stock_package_type
+msgid "Stock package type"
+msgstr "Typ skladového balíku"
 
 #. module: delivery_neoship
 #: model:ir.model.fields,field_description:delivery_neoship.field_neoship_closure_schedule__sun
