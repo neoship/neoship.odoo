@@ -26,7 +26,7 @@
                         <field name="status_date" optional="hide"/>
                         <field name="last_sync" optional="hide"/>
                         <field name="reference" optional="hide"/>
-                        <field name="neoship_id" optional="hide"/>
+                        <field name="neoship_id" optional="hide" options="{'enable_formatting': false}"/>
                         <field name="sync_error" optional="show"/>
                         <field name="error" optional="show"/>
                     </list>

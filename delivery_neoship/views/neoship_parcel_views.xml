@@ -31,7 +31,7 @@
                             <field name="package_id" invisible="not package_id"/>
                             <field name="tracking_ref"/>
                             <field name="reference"/>
-                            <field name="neoship_id"/>
+                            <field name="neoship_id" options="{'enable_formatting': false}"/>
                             <field name="prod_environment"/>
                             <field name="is_copy" invisible="not is_copy"/>
                             <field name="cod_amount"/>
