@@ -3,7 +3,8 @@
 `docs/tutorial.html` (and `tutorial-sk.html`) was captured on a local database with realistic
 Slovak and Czech data: the coffee roastery Zrnko s.r.o. in Bratislava, its warehouse
 Sklad Bratislava (`BA/OUT/…`), seven products with weights and 23 % VAT included in the price,
-Slovak and Czech customers and a few earlier orders. All orders are in EUR; the order tag
+Slovak, Czech and Polish customers, a warehouse box without a carrier integration and a few earlier
+orders. All orders are in EUR; the order tag
 `Dobierka` marks cash on delivery and `Platba kartou` a card payment.
 
 ## Recreate it
@@ -26,7 +27,8 @@ and the product Darčeková sada Ráno with a *Kit* bill of materials: 1 × Káv
 1 × Hrnček Tatry. It is not seeded.
 
 The Neoship delivery methods are not seeded: creating them, testing the connection and choosing
-the carriers is chapter 02 of the tutorial. Use the test credentials from `.env`.
+the carriers is chapter 02 of the tutorial. Use the test credentials from `.env`. The Packeta package types
+come from **Load Packeta Sizes** on a Packeta method (chapter 04).
 
 Validating a delivery creates a real shipment on the Neoship test API and uses test credit.
 Cancel test shipments when you are done (chapter 09) and never run a closure on the shared

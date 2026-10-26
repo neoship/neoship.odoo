@@ -23,6 +23,8 @@ DPD = 'Kuriér DPD'
 PACKETA_SK = 'Packeta – doručenie domov SK'
 PACKETA_CZ = 'Packeta – doručenie domov CZ'
 PICKUP_POINT = '19407'
+INPOST_POINT = 'KRA130M'
+INPOST_CARRIER = 3060
 MIN_STOCK = 60
 STOCK_QUANTITY = 120
 
@@ -83,6 +85,15 @@ SCENARIOS = [
         COD_TAG,
         {'neoship_parcelshop_id': PICKUP_POINT},
         'Validate: Z-BOX Žilina 19407, COD 94.50 €.',
+    ),
+    (
+        'TEST 05 InPost box',
+        'Anna Kowalska',
+        [('ZR-ETI-250', 2), ('HR-TAT-350', 1)],
+        PACKETA_SK,
+        CARD_TAG,
+        {'neoship_parcelshop_id': INPOST_POINT, 'neoship_parcelshop_carrier_type': INPOST_CARRIER},
+        'Put in Pack offers InPost Box A, B, C and the warehouse box; choose Box A, then validate.',
     ),
     (
         'TEST 06 dve škatule SPS',
@@ -207,6 +218,7 @@ def create_scenario(env, products, carriers, tags, scenario):
             'client_order_ref': reference,
             'tag_ids': [Command.set(tags[tag].ids)],
             'neoship_parcelshop_id': extra.get('neoship_parcelshop_id'),
+            'neoship_parcelshop_carrier_type': extra.get('neoship_parcelshop_carrier_type'),
             'order_line': [
                 Command.create({'product_id': products[code].id, 'product_uom_qty': quantity})
                 for code, quantity in lines
