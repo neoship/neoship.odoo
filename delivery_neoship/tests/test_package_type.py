@@ -51,7 +51,7 @@ class TestPackageType(NeoshipCommon):
         package_types = self._package_types()
         self.assertEqual(package_types.mapped('shipper_package_code'), ['A', 'B', 'C'])
         self.assertEqual(set(package_types.mapped('neoship_carrier_type')), {3060})
-        self.assertEqual(package_types[0].name, 'PL InPost Paczkomaty Box A (64 × 38 × 8 cm)')
+        self.assertEqual(package_types[0].name, 'PL InPost Paczkomaty Box A')
         self.assertIn('3 package types', action['params']['message'])
 
     def test_package_type_dimensions_are_in_the_length_unit_of_odoo(self):
@@ -68,8 +68,19 @@ class TestPackageType(NeoshipCommon):
         self._load([{**CARRIERS[1], 'size_categories': resized}])
 
         self.assertEqual(self._package_types(), loaded)
-        self.assertEqual(loaded[0].name, 'PL InPost Paczkomaty Box A (64 × 38 × 9 cm)')
         self.assertEqual(loaded[0].height, 90.0)
+
+    def test_loading_again_keeps_renamed_package_types(self):
+        self._load(CARRIERS)
+        package_type = self._package_types()[0]
+        package_type.name = 'InPost small'
+        self._load(CARRIERS)
+        self.assertEqual(package_type.name, 'InPost small')
+
+    def test_carrier_listed_twice_loads_its_sizes_once(self):
+        action = self._load([*CARRIERS, {**CARRIERS[1], 'id': 8}])
+        self.assertEqual(len(self._package_types()), 3)
+        self.assertIn('3 package types', action['params']['message'])
 
     def test_package_types_made_by_users_are_kept(self):
         own = self.env['stock.package.type'].create(

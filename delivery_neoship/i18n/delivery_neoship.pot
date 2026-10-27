@@ -6,8 +6,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Odoo Server 19.0-20260926\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-10-23 08:21+0000\n"
-"PO-Revision-Date: 2026-10-23 08:21+0000\n"
+"POT-Creation-Date: 2026-10-26 09:53+0000\n"
+"PO-Revision-Date: 2026-10-26 09:53+0000\n"
 "Last-Translator: \n"
 "Language-Team: \n"
 "MIME-Version: 1.0\n"
@@ -19,12 +19,6 @@ msgstr ""
 #. odoo-python
 #: code:addons/delivery_neoship/models/stock_picking.py:0
 msgid "%(amount)s to %(converted)s"
-msgstr ""
-
-#. module: delivery_neoship
-#. odoo-python
-#: code:addons/delivery_neoship/models/delivery_carrier.py:0
-msgid "%(carrier)s %(category)s (%(length)s × %(width)s × %(height)s cm)"
 msgstr ""
 
 #. module: delivery_neoship

@@ -1003,6 +1003,18 @@ class TestSendShipping(NeoshipShippingCommon):
         package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
         self.assertNotIn('others', package)
 
+    def test_default_package_type_of_the_pickup_point_carrier_is_sent(self):
+        self._use_packeta(neoship_package_type_id=self._size('A').id)
+        self.order.write({'neoship_parcelshop_id': '20376', 'neoship_parcelshop_carrier_type': 3060})
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['others'], {'size_category': 'A'})
+
+    def test_pickup_point_of_unknown_carrier_leaves_the_default_size_check_to_neoship(self):
+        self._use_packeta(neoship_package_type_id=self._size('A').id)
+        self.order.neoship_parcelshop_id = '20376'
+        package = self._sent_package(self._send(self._picking(), NOT_FOUND, created(), label()))
+        self.assertEqual(package['others'], {'size_category': 'A'})
+
     def test_package_type_without_neoship_sends_no_size_category(self):
         self._use_packeta()
         package_type = self.env['stock.package.type'].create({'name': 'Box', 'shipper_package_code': 'A'})

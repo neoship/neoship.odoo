@@ -19,6 +19,3 @@ class StockPackageType(models.Model):
         if self.package_carrier_type != const.DELIVERY_TYPE:
             return False
         return self.shipper_package_code or False
-
-    def _neoship_fits_carrier(self, carrier_type):
-        return not (self.neoship_carrier_type and carrier_type) or self.neoship_carrier_type == carrier_type

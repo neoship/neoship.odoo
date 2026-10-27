@@ -183,27 +183,22 @@ class StockPicking(models.Model):
             package['weight'] = weight
 
     def _neoship_set_size_category(self, package, pack):
-        carrier = self.carrier_id
-        if not carrier.neoship_has_carrier_type:
+        if not self.carrier_id.neoship_has_carrier_type:
             return
-        # Without carrier_type the pickup point decides the carrier in Neoship, which checks the category.
-        carrier_type = package.get('carrier_type')
+        domain = self._neoship_package_type_domain()
         package_type = pack.package_type_id
-        if package_type._neoship_size_category():
-            if not package_type._neoship_fits_carrier(carrier_type):
-                raise UserError(
-                    self.env._(
-                        'Pack %(pack)s of transfer %(transfer)s has package type %(type)s, '
-                        'a size of another Packeta carrier than the one the transfer is sent with.',
-                        pack=pack.name,
-                        transfer=self.name,
-                        type=package_type.name,
-                    )
+        if not package_type._neoship_size_category():
+            package_type = self.carrier_id.neoship_package_type_id.filtered_domain(domain)
+        elif not package_type.filtered_domain(domain):
+            raise UserError(
+                self.env._(
+                    'Pack %(pack)s of transfer %(transfer)s has package type %(type)s, '
+                    'a size of another Packeta carrier than the one the transfer is sent with.',
+                    pack=pack.name,
+                    transfer=self.name,
+                    type=package_type.name,
                 )
-        else:
-            package_type = carrier.neoship_package_type_id
-            if package_type.neoship_carrier_type and package_type.neoship_carrier_type != carrier_type:
-                return
+            )
         size_category = package_type._neoship_size_category()
         if size_category:
             package['others'] = {'size_category': size_category}

@@ -351,42 +351,36 @@ class DeliveryCarrier(models.Model):
         existing = {(item.neoship_carrier_type, item.shipper_package_code): item for item in managed}
         cm = self.env.ref(const.ODOO_UOM_CM)
         length_uom = self.env['product.template']._get_length_uom_id_from_ir_config_parameter()
-        loaded = package_types
+        loaded_ids = set()
         for carrier in carriers:
             for category in carrier.size_categories:
+                key = (carrier.packeta_id, category.code)
                 values = {
                     'packaging_length': cm._compute_quantity(category.length, length_uom, round=False),
                     'width': cm._compute_quantity(category.width, length_uom, round=False),
                     'height': cm._compute_quantity(category.height, length_uom, round=False),
-                    'name': self.env._(
-                        '%(carrier)s %(category)s (%(length)s × %(width)s × %(height)s cm)',
-                        carrier=carrier.name,
-                        category=category.code,
-                        length=category.length,
-                        width=category.width,
-                        height=category.height,
-                    ),
                 }
-                package_type = existing.get((carrier.packeta_id, category.code))
+                package_type = existing.get(key)
                 if package_type:
                     package_type.write(values)
                 else:
-                    package_type = package_types.create(
+                    package_type = existing[key] = package_types.create(
                         {
                             **values,
+                            'name': f'{carrier.name} {category.code}',
                             'package_carrier_type': const.DELIVERY_TYPE,
                             'neoship_carrier_type': carrier.packeta_id,
                             'shipper_package_code': category.code,
                         }
                     )
-                loaded |= package_type
+                loaded_ids.add(package_type.id)
         return {
             'type': 'ir.actions.client',
             'tag': 'display_notification',
             'params': {
                 'type': 'success',
                 'title': self.env._('Neoship'),
-                'message': self.env._('%s package types of Packeta carriers are ready.', len(loaded)),
+                'message': self.env._('%s package types of Packeta carriers are ready.', len(loaded_ids)),
                 'sticky': False,
             },
         }

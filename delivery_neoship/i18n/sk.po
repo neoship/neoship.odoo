@@ -25,12 +25,6 @@ msgstr "%(amount)s na %(converted)s"
 #. module: delivery_neoship
 #. odoo-python
 #: code:addons/delivery_neoship/models/delivery_carrier.py:0
-msgid "%(carrier)s %(category)s (%(length)s × %(width)s × %(height)s cm)"
-msgstr ""
-
-#. module: delivery_neoship
-#. odoo-python
-#: code:addons/delivery_neoship/models/delivery_carrier.py:0
 msgid "%s package types of Packeta carriers are ready."
 msgstr "Typy balíkov služieb Packeta sú pripravené: %s."
 

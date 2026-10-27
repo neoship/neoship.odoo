@@ -50,7 +50,7 @@
                             <label for="neoship_package_type_id" invisible="not neoship_has_carrier_type"/>
                             <div class="o_row" invisible="not neoship_has_carrier_type">
                                 <field name="neoship_package_type_id" placeholder="Largest size of the carrier"/>
-                                <button name="action_neoship_load_package_types" type="object" string="Load Packeta Sizes" icon="fa-download" class="btn-link"/>
+                                <button name="action_neoship_load_package_types" type="object" string="Load Packeta Sizes" icon="fa-download" class="btn-link" groups="stock.group_stock_manager"/>
                             </div>
                             <label for="neoship_label_format_name" invisible="not neoship_shipper_id"/>
                             <div class="o_row" invisible="not neoship_shipper_id">
