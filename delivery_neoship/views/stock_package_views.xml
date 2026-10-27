@@ -12,7 +12,7 @@
                             <field name="picking_id"/>
                             <field name="tracking_ref"/>
                             <field name="reference"/>
-                            <field name="neoship_id"/>
+                            <field name="neoship_id" options="{'enable_formatting': false}"/>
                             <field name="status"/>
                             <field name="status_group" widget="badge" decoration-success="status_group == 'delivered'" decoration-danger="status_group in ('notdelivered', 'returned')" decoration-info="status_group == 'transit'"/>
                         </list>

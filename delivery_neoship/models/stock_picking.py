@@ -155,9 +155,12 @@ class StockPicking(models.Model):
                 parcel['reference_number'] = neoship_parcel_reference(package['reference_number'], sequence)
                 weight = self._neoship_weight_kg(pack.shipping_weight or pack.weight)
                 self._neoship_set_weight(parcel, weight)
+                self._neoship_set_size_category(parcel, pack)
                 packages.append(parcel)
             return packages
         count = len(packs) or 1
+        if count == 1:
+            self._neoship_set_size_category(package, packs)
         package['count_of_packages'] = count
         # Neoship copies the main package's weight to every extra parcel.
         self._neoship_set_weight(
@@ -179,6 +182,27 @@ class StockPicking(models.Model):
         if weight > 0:
             package['weight'] = weight
 
+    def _neoship_set_size_category(self, package, pack):
+        if not self.carrier_id.neoship_has_carrier_type:
+            return
+        domain = self._neoship_package_type_domain()
+        package_type = pack.package_type_id
+        if not package_type._neoship_size_category():
+            package_type = self.carrier_id.neoship_package_type_id.filtered_domain(domain)
+        elif not package_type.filtered_domain(domain):
+            raise UserError(
+                self.env._(
+                    'Pack %(pack)s of transfer %(transfer)s has package type %(type)s, '
+                    'a size of another Packeta carrier than the one the transfer is sent with.',
+                    pack=pack.name,
+                    transfer=self.name,
+                    type=package_type.name,
+                )
+            )
+        size_category = package_type._neoship_size_category()
+        if size_category:
+            package['others'] = {'size_category': size_category}
+
     def _neoship_prepare_package(self):
         self.ensure_one()
         carrier = self.carrier_id
@@ -196,14 +220,31 @@ class StockPicking(models.Model):
         parcelshop = self.sale_id.neoship_parcelshop_id
         if parcelshop:
             package['parcelshop'] = parcelshop
-            if carrier.neoship_has_carrier_type and self.sale_id.neoship_parcelshop_carrier_type:
-                package['carrier_type'] = self.sale_id.neoship_parcelshop_carrier_type
         elif carrier.neoship_has_carrier_type:
             self._neoship_check_packeta_country(receiver)
-            package['carrier_type'] = carrier.neoship_carrier_type
+        carrier_type = self._neoship_packeta_carrier_type()
+        if carrier_type:
+            package['carrier_type'] = carrier_type
 
         package.update(self._neoship_cod_values())
         return package
+
+    def _neoship_packeta_carrier_type(self):
+        if not self.carrier_id.neoship_has_carrier_type:
+            return 0
+        if self.sale_id.neoship_parcelshop_id:
+            return self.sale_id.neoship_parcelshop_carrier_type
+        return self.carrier_id.neoship_carrier_type
+
+    def _neoship_package_type_domain(self):
+        domain = [('package_carrier_type', '=', const.DELIVERY_TYPE)]
+        if not self.carrier_id.neoship_has_carrier_type:
+            return [*domain, ('neoship_carrier_type', '=', 0)]
+        carrier_type = self._neoship_packeta_carrier_type()
+        # Without a carrier the pickup point decides it, so a size of any Packeta carrier may fit.
+        if not carrier_type:
+            return domain
+        return [*domain, ('neoship_carrier_type', 'in', (0, carrier_type))]
 
     def _neoship_address_values(self, prefix, partner, contacts):
         commercial = partner.commercial_partner_id

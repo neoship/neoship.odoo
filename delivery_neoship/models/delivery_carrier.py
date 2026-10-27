@@ -74,6 +74,13 @@ class DeliveryCarrier(models.Model):
         digits='Stock Weight',
         help='Used when the delivery order has no weight.',
     )
+    neoship_package_type_id = fields.Many2one(
+        'stock.package.type',
+        string='Default Package Type',
+        domain=[('package_carrier_type', '=', const.DELIVERY_TYPE)],
+        help='Its size category is sent for parcels without a Neoship package type, '
+        'unless it belongs to another Packeta carrier. Without one, Neoship uses the largest size of the carrier.',
+    )
     neoship_cod_domain = fields.Char(
         string='Cash on Delivery Orders',
         help=(
@@ -334,6 +341,49 @@ class DeliveryCarrier(models.Model):
                 'print_formats': print_formats,
             },
         )
+
+    def action_neoship_load_package_types(self):
+        carriers = self._neoship_fetch(lambda client: client.get_packeta_carriers())
+        package_types = self.env['stock.package.type']
+        managed = package_types.search(
+            [('package_carrier_type', '=', const.DELIVERY_TYPE), ('neoship_carrier_type', '!=', 0)]
+        )
+        existing = {(item.neoship_carrier_type, item.shipper_package_code): item for item in managed}
+        cm = self.env.ref(const.ODOO_UOM_CM)
+        length_uom = self.env['product.template']._get_length_uom_id_from_ir_config_parameter()
+        loaded_ids = set()
+        for carrier in carriers:
+            for category in carrier.size_categories:
+                key = (carrier.packeta_id, category.code)
+                values = {
+                    'packaging_length': cm._compute_quantity(category.length, length_uom, round=False),
+                    'width': cm._compute_quantity(category.width, length_uom, round=False),
+                    'height': cm._compute_quantity(category.height, length_uom, round=False),
+                }
+                package_type = existing.get(key)
+                if package_type:
+                    package_type.write(values)
+                else:
+                    package_type = existing[key] = package_types.create(
+                        {
+                            **values,
+                            'name': f'{carrier.name} {category.code}',
+                            'package_carrier_type': const.DELIVERY_TYPE,
+                            'neoship_carrier_type': carrier.packeta_id,
+                            'shipper_package_code': category.code,
+                        }
+                    )
+                loaded_ids.add(package_type.id)
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'type': 'success',
+                'title': self.env._('Neoship'),
+                'message': self.env._('%s package types of Packeta carriers are ready.', len(loaded_ids)),
+                'sticky': False,
+            },
+        }
 
     def action_neoship_choose_label_format(self):
         self.ensure_one()

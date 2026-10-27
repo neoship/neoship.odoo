@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<odoo>
+    <record id="stock_package_type_form_neoship" model="ir.ui.view">
+        <field name="name">stock.package.type.form.neoship</field>
+        <field name="model">stock.package.type</field>
+        <field name="inherit_id" ref="stock_delivery.stock_package_type_form_delivery"/>
+        <field name="arch" type="xml">
+            <field name="shipper_package_code" position="after">
+                <field name="neoship_carrier_type" invisible="package_carrier_type != 'neoship'" options="{'enable_formatting': false}"/>
+            </field>
+        </field>
+    </record>
+</odoo>

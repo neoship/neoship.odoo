@@ -54,6 +54,7 @@ CUSTOMERS = [
     ('Petr Svoboda', 'Vinohradská 48', '120 00', 'Praha 2', 'cz', 'petr.svoboda', '+420 777 123 456'),
     ('Kateřina Dvořáková', 'Masarykova 21', '602 00', 'Brno', 'cz', 'katerina.dvorakova', '+420 603 234 567'),
     ('Jakub Procházka', 'Nádražní 15', '702 00', 'Ostrava', 'cz', 'jakub.prochazka', '+420 731 345 678'),
+    ('Anna Kowalska', 'Pawia 5', '31-154', 'Kraków', 'pl', 'anna.kowalska', '+48 512 345 678'),
 ]
 BUSINESS_CUSTOMER = {
     'name': 'Kaviareň Pod Hradom s.r.o.',
@@ -69,6 +70,9 @@ BUSINESS_CUSTOMER = {
 # Sales order tags set by the e-shop; the Neoship cash on delivery rule matches COD_TAG.
 COD_TAG = 'Dobierka'
 CARD_TAG = 'Platba kartou'
+
+# A box of our own, without a carrier integration: name, length, width, height in cm, empty weight in kg
+WAREHOUSE_BOX = ('Krabica 30 × 20 × 15 cm', 30, 20, 15, 0.2)
 
 PICKUP_METHOD = 'Osobný odber – Bratislava'
 HISTORY = [
@@ -176,6 +180,24 @@ def setup_customers(env):
     return customers
 
 
+def setup_package_types(env):
+    name, length, width, height, weight = WAREHOUSE_BOX
+    cm = env.ref('uom.product_uom_cm')
+    length_uom = env['product.template']._get_length_uom_id_from_ir_config_parameter()
+    get_or_create(
+        env,
+        'stock.package.type',
+        [('name', '=', name)],
+        {
+            'name': name,
+            'packaging_length': cm._compute_quantity(length, length_uom, round=False),
+            'width': cm._compute_quantity(width, length_uom, round=False),
+            'height': cm._compute_quantity(height, length_uom, round=False),
+            'base_weight': weight,
+        },
+    )
+
+
 def setup_tags(env):
     for name in (COD_TAG, CARD_TAG):
         get_or_create(env, 'crm.tag', [('name', '=', name)], {'name': name})
@@ -241,6 +263,7 @@ def seed(env):
     products = setup_products(env, warehouse)
     customers = setup_customers(env)
     setup_tags(env)
+    setup_package_types(env)
     setup_history(env, products, customers)
     _logger.info(
         'Tutorial data ready: %s products, %s customers, %s sales orders',

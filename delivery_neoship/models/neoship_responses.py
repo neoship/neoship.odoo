@@ -61,15 +61,34 @@ class CodLimit:
 
 
 @dataclass(frozen=True)
+class SizeCategory:
+    code: str
+    length: int
+    width: int
+    height: int
+
+    @classmethod
+    def from_json(cls, data):
+        return cls(data['code'], int(data['length']), int(data['width']), int(data['height']))
+
+
+@dataclass(frozen=True)
 class PacketaCarrier:
     packeta_id: int
     name: str
     state_code: str
     currency: str | None
+    size_categories: tuple[SizeCategory, ...] = ()
 
     @classmethod
     def from_json(cls, data):
-        return cls(int(data['packeta_id']), data['name'], data['state_code'], data.get('currency'))
+        return cls(
+            int(data['packeta_id']),
+            data['name'],
+            data['state_code'],
+            data.get('currency'),
+            tuple(SizeCategory.from_json(item) for item in data.get('size_categories') or ()),
+        )
 
 
 @dataclass(frozen=True)

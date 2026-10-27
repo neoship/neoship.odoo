@@ -56,10 +56,18 @@
       mark([45, 677, 837, 67], [937, 710], "After successful cancellation, the parcel rows and the tracking number are removed.", "Po úspešnom storne sa riadky balíkov aj sledovacie číslo odstránia."),
     ],
     "14-packeta-cz-config.webp": [
-      mark([235, 498, 184, 47], [474, 522], "The Packeta settings are inside Neoship Configuration.", "Nastavenia Packety sú v záložke Neoship Configuration."),
+      mark([239, 502, 176, 39], [474, 522], "The Packeta settings are inside Neoship Configuration.", "Nastavenia Packety sú v záložke Neoship Configuration."),
       mark([878, 623, 57, 24], [990, 635], "Choose Packeta as the main Neoship Carrier.", "Ako hlavný Neoship Carrier vyberte Packetu."),
       mark([1271, 710, 100, 31], [1412, 761], "The second Choose button selects Packeta's home-delivery service.", "Druhé tlačidlo Choose vyberá službu Packety pre doručenie na adresu."),
       mark([878, 767, 103, 24], [1036, 779], "Confirm the stored home-delivery country matches the recipient.", "Overte, že uložená krajina doručenia na adresu zodpovedá príjemcovi."),
+      mark([1199, 821, 172, 31], [1300, 785], "Load Packeta Sizes creates a package type for each Packeta size.", "Load Packeta Sizes vytvorí typ balíka pre každú veľkosť Packety."),
+      mark([1022, 51, 404, 64], [960, 150], "The notification says how many package types are ready.", "Hlásenie ukáže, koľko typov balíkov je pripravených."),
+      mark([878, 822, 200, 30], [960, 885], "Default Package Type: the size for parcels without one; empty means the carrier's largest size.", "Default Package Type: veľkosť pre balíky bez typu; prázdne pole znamená najväčšiu veľkosť dopravcu."),
+    ],
+    "51-package-types.webp": [
+      mark([292, 302, 465, 128], [640, 560], "The loaded InPost Paczkomaty Box sizes.", "Načítané veľkosti InPost Paczkomaty Box."),
+      mark([1162, 302, 52, 128], [1240, 560], "Carrier Code is the size sent to Neoship.", "Carrier Code je veľkosť, ktorá ide do Neoshipu."),
+      mark([65, 426, 400, 40], [200, 560], "Your own box stays without a carrier integration.", "Vlastná škatuľa zostáva bez integrácie dopravcu."),
     ],
     "15-packeta-country-picker.webp": [
       mark([243, 183, 954, 48], [1252, 207], "For a Czech address, check the CZ service, Czech Republic and CZK on this row.", "Pre českú adresu skontrolujte v tomto riadku službu CZ, Czech Republic a CZK."),
@@ -133,8 +141,14 @@
       mark([455, 288, 229, 62], [733, 341], "Closure Schedules and Protocols are in the same Delivery group; see chapter 10 before using them.", "Plánované uzávierky (Closure Schedules) a Protokoly (Protocols) sú v tej istej skupine Delivery; pred použitím si prečítajte kapitolu 10."),
     ],
     "36-pickup-point-field.webp": [
-      mark([135, 213, 108, 47], [298, 236], "Open Other Info on the sales order.", "Na predajnej objednávke otvorte Ďalšie informácie (Other Info)."),
-      mark([29, 908, 231, 50], [315, 933], "Neoship Pickup Point ID: the carrier-facing ID 19407, not the internal Neoship row ID 40283.", "Neoship Pickup Point ID: ID dopravcu 19407, nie interné ID riadka v Neoship 40283."),
+      mark([139, 199, 100, 39], [298, 218], "Open Other Info on the sales order.", "Na predajnej objednávke otvorte Ďalšie informácie (Other Info)."),
+      mark([29, 890, 231, 50], [315, 915], "Neoship Pickup Point ID: the carrier-facing ID 19407, not the internal Neoship row ID 40283.", "Neoship Pickup Point ID: ID dopravcu 19407, nie interné ID riadka v Neoship 40283."),
+      mark([29, 945, 231, 50], [315, 970], "Neoship Pickup Point Carrier ID stays 0 for Packeta's own points; partner carriers need their Packeta ID.", "Neoship Pickup Point Carrier ID zostáva 0 pri vlastných miestach Packety; partnerskí dopravcovia potrebujú svoje ID v Packete."),
+    ],
+    "52-put-in-pack.webp": [
+      mark([511, 454, 521, 34], [1110, 470], "Package Type offers only sizes that fit the delivery's Packeta carrier.", "Package Type ponúkne len veľkosti, ktoré sedia na dopravcu Packety z dodacieho listu."),
+      mark([514, 491, 489, 85], [1110, 532], "InPost Box A, B and C for the InPost locker.", "InPost Box A, B a C pre box InPost."),
+      mark([514, 572, 489, 31], [1110, 600], "Your own boxes without a carrier integration are offered too.", "Ponúknu sa aj vlastné škatule bez integrácie dopravcu."),
     ],
     "37-closure-notice.webp": [
       mark([1022, 52, 404, 82], [1042, 25], "Selecting SPS, Packeta or Slovenská pošta creates an archived closure schedule. Open it from this link or later from the menu.", "Výber SPS, Packety alebo Slovenskej pošty vytvorí archivovaný plán uzávierky. Otvoríte ho týmto odkazom alebo neskôr z menu."),
