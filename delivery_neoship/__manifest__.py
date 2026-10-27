@@ -2,7 +2,7 @@
     'name': 'Neoship Shipping',
     'summary': 'Send shipments through Neoship and track their delivery',
     'category': 'Shipping Connectors',
-    'version': '19.0.0.2.1',
+    'version': '19.0.0.3.0',
     'depends': ['stock_delivery'],
     'data': [
         'security/ir.model.access.csv',
