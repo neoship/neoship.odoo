@@ -172,6 +172,15 @@ class TestCashOnDelivery(NeoshipShippingCommon):
         picking.name = 'WH/OUT/00012'
         self.assertEqual(picking._neoship_cod_values()['cod_reference'], '00012')
 
+    def test_sk_posta_reference_is_digits_of_order_number(self):
+        self.carrier.neoship_shipper_code = 'SK_POSTA'
+        order = self._order(self._line(self.mug, 1, 8.0))
+        order.name = 'S00056'
+        picking = order.picking_ids
+        self._validate(picking)
+        package = self._sent_package(self._send_new(picking, created()))
+        self.assertEqual(package['cod_reference'], '00056')
+
     def _czk_picking(self, amount):
         order = self._order(self._line(self.mug, 1, 8.0))
         picking = order.picking_ids
